@@ -1,0 +1,22 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8000:8000'
+    environment:
+      - RELEASE=local
+      - PORT=8000
+      - CORS_HOSTS=http://localhost:8000
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget --quiet --tries=1 --spider http://app:8000/api/v1/health || exit 1',
+        ]
+      interval: 1s
+      timeout: 2s
+      retries: 15 
+    restart: unless-stopped
+

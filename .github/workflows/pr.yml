@@ -1,0 +1,26 @@
+name: PR Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  lint-build-test-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build .
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Validate Fly.io configuration
+        run: flyctl config validate --app secrets-vault
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

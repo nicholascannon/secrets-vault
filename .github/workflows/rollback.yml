@@ -1,0 +1,81 @@
+name: Rollback Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_release:
+        description: 'Release hash to rollback to (leave empty for previous)'
+        required: false
+        type: string
+      confirmation:
+        description: 'Type "ROLLBACK" to confirm'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirmation == 'ROLLBACK'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Get current release
+        id: current
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          CURRENT=$(flyctl releases --app secrets-vault --json | jq -r '.[0].ImageRef' | cut -d: -f2)
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current release: $CURRENT"
+
+      - name: Determine target release
+        id: target
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          TARGET_INPUT: ${{ github.event.inputs.target_release }}
+        run: |
+          if [ -z "$TARGET_INPUT" ]; then
+            # Get previous release from Fly.io
+            TARGET=$(flyctl releases --app secrets-vault --json | jq -r '.[1].ImageRef' | cut -d: -f2)
+          else
+            TARGET="$TARGET_INPUT"
+          fi
+          echo "target=$TARGET" >> $GITHUB_OUTPUT
+          echo "Target release: $TARGET"
+
+      - name: Validate target release exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if ! flyctl releases --app secrets-vault --json | jq -r '.[].ImageRef' | grep -q ":${{ steps.target.outputs.target }}"; then
+            echo "Error: Target release ${{ steps.target.outputs.target }} not found"
+            exit 1
+          fi
+
+      - name: Show rollback summary
+        run: |
+          echo "## Rollback Summary"
+          echo "- Current: ${{ steps.current.outputs.current }}"
+          echo "- Target: ${{ steps.target.outputs.target }}"
+          echo "- Triggered by: ${{ github.actor }}"
+          echo "- Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      - name: Authenticate with Fly.io Docker Registry
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl auth docker
+
+      - name: Deploy rollback
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy \
+            --image registry.fly.io/secrets-vault:${{ steps.target.outputs.target }} \
+            --env RELEASE=${{ steps.target.outputs.target }} \
+            --app secrets-vault

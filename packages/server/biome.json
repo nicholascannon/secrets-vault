@@ -1,0 +1,23 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "root": false,
+  "extends": ["../../biome.json"],
+  "linter": {
+    "rules": {
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": "express",
+                "importNamePattern": "(ErrorRequestHandler|RequestHandler)",
+                "message": "Use Request, Response, NextFunction instead of ErrorRequestHandler or RequestHandler (required for custom express type overrides)"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

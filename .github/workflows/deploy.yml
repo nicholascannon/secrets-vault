@@ -1,0 +1,84 @@
+name: Deploy Pipeline
+
+on:
+  # enable manual runs of the deploy pipeline
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      # Source code (includes all package configs)
+      - 'packages/**'
+      # Docker and deployment config
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'fly.toml'
+      # CI/CD config
+      - '.github/workflows/deploy.yml'
+      # Root-level dependencies and build config
+      - 'package.json'
+      - 'package-lock.json'
+      - 'biome.json'
+      - 'tsconfig.json'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get commit hash
+        id: commit
+        run: echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Authenticate with Fly.io Docker Registry
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl auth docker
+
+      - name: Build Docker image
+        run: docker build -t registry.fly.io/secrets-vault:${{ steps.commit.outputs.hash }} .
+
+      - name: Push Docker image
+        run: docker push registry.fly.io/secrets-vault:${{ steps.commit.outputs.hash }}
+
+      - name: Set SENTRY_DSN secret (if provided)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          if [ -n "$SENTRY_DSN" ]; then
+            flyctl secrets set SENTRY_DSN="$SENTRY_DSN" --app secrets-vault --stage
+          fi
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --image registry.fly.io/secrets-vault:${{ steps.commit.outputs.hash }} --env RELEASE=${{ steps.commit.outputs.hash }} --app secrets-vault
+
+      - name: Create and push git tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="release/${{ steps.commit.outputs.hash }}"
+          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            git tag -a "$TAG_NAME" -m "Release ${{ steps.commit.outputs.hash }}"
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+            git push origin "$TAG_NAME"
+            echo "Created and pushed tag: $TAG_NAME"
+          else
+            echo "Tag $TAG_NAME already exists, skipping"
+          fi

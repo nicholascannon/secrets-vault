@@ -1,0 +1,32 @@
+{
+  "name": "secrets-vault",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@secrets-vault/shared && npm run build --workspace=@secrets-vault/frontend && npm run build --workspace=@secrets-vault/server",
+    "test": "npm run test --workspaces --if-present -- --watch=false",
+    "dev": "concurrently -n \"shared,server,frontend\" -c \"yellow,blue,green\" \"npm run dev --workspace=@secrets-vault/shared\" \"npm run dev --workspace=@secrets-vault/server\" \"npm run dev --workspace=@secrets-vault/frontend\"",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "frontend": "npm run --workspace=@secrets-vault/frontend --",
+    "server": "npm run --workspace=@secrets-vault/server --",
+    "shared": "npm run --workspace=@secrets-vault/shared --",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx,json,css,md}": "biome check --write --no-errors-on-unmatched"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.10",
+    "concurrently": "^9.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}

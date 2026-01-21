@@ -1,0 +1,187 @@
+# Startup Stack Project Rules
+
+## Project Structure
+
+Monorepo: `server` (Express), `frontend` (React), `shared` (types)
+- TypeScript with ESM (`type: "module"`)
+- Biome for linting/formatting
+- Vitest for testing
+
+## Code Style (MUST follow)
+
+- ESM imports with `.js` extensions (even for `.ts` files)
+- Single quotes, 2-space indent, semicolons always
+- Line width: 120 chars, trailing commas (ES5), arrow parens: always
+- `import type { ... }` for type-only imports
+- `node:` prefix for Node.js built-ins: `import { join } from 'node:path'`
+- Run `npm run lint:fix` from repo root to fix formatting
+
+## Backend Architecture (CLEAN)
+
+### Layer Responsibilities
+
+**Controllers** (`api/{feature}/{feature}-controller.ts`)
+- Implement `Controller` interface with `public readonly router: Router`
+- Handle HTTP concerns ONLY — NO business logic
+- Validate requests, call service, construct response
+- Test with Supertest (happy path + common errors only)
+
+**Services** (`api/{feature}/{feature}-service.ts`)
+- Contain ALL business logic for the domain
+- Depend on repository interfaces, never concrete implementations
+- Extract pure functions when it improves testability
+- Test exhaustively with mocked dependencies
+
+**Repositories** (`api/{feature}/repositories/{feature}-{impl}-repo.ts`)
+- Define interface first, then implement concrete class
+- Name pattern: `UserRepo` interface → `PgUserRepo`, `MemoryUserRepo`
+
+**Middleware** (`middleware/{name}.ts`)
+- Export as named function: `export function middlewareName(...)`
+- Signature: `(req: Request, res: Response, next: NextFunction) => void`
+
+### API Response Format (MUST follow)
+
+ALWAYS use `ApiResponse<TData, TErrorCode, TErrorDetails>` from `@secrets-vault/shared`:
+
+```typescript
+// Success
+{ success: true, data: TData, meta: { requestId, timestamp } }
+
+// Error
+{ success: false, error: { code, message, details? }, meta: { requestId, timestamp } }
+```
+
+- ALWAYS include `meta` with `requestId` (from `req.requestId`) and `timestamp` (ISO string)
+- ALWAYS type responses: `res.status(200).json<TypeResponse>({ ... })`
+- Error codes: SCREAMING_SNAKE_CASE (`'NOT_FOUND'`, `'INVALID_REQUEST'`)
+
+### Architecture Pattern (Controller → Service → Repository)
+
+```typescript
+// api/user/repositories/user-repo.ts
+export interface UserRepo {
+  findById(id: string): Promise<User | null>;
+  save(user: User): Promise<User>;
+}
+
+// api/user/repositories/user-pg-repo.ts
+export class UserPgRepo implements UserRepo {
+  constructor(private readonly db: Database) {}
+
+  async findById(id: string): Promise<User | null> {
+    return this.db.query('SELECT * FROM users WHERE id = $1', [id]);
+  }
+
+  async save(user: User): Promise<User> {
+    // ...
+  }
+}
+
+// api/user/user-service.ts
+export class UserService {
+  constructor(private readonly userRepo: UserRepo) {}
+
+  async updateProfile(userId: string, data: UpdateProfileData): Promise<User> {
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new NotFoundError('USER_NOT_FOUND');
+    }
+    const updated = { ...user, ...data, updatedAt: new Date() };
+    return this.userRepo.save(updated);
+  }
+}
+
+// api/user/user-controller.ts
+export class UserController implements Controller {
+  public readonly router: Router;
+
+  constructor(private readonly userService: UserService) {
+    this.router = Router();
+    this.router.patch('/:id/profile', this.updateProfile);
+  }
+
+  private updateProfile = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = UpdateProfileSchema.parse(req.body);
+    const user = await this.userService.updateProfile(id, data);
+    return res.status(200).json<UpdateProfileResponse>({
+      success: true,
+      data: user,
+      meta: {
+        requestId: req.requestId,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  };
+}
+```
+
+Key points:
+- Controller: HTTP only — validate request, call service, format response
+- Service: ALL business logic — orchestrates repos, enforces rules
+- Repository: Data access only — interface first, concrete impl separate
+- Private handlers as arrow functions: `private handler = async (req, res) => { ... }`
+- Return early: `return res.status(...).json(...)`
+
+### Configuration
+
+- Zod validation in `config/env.ts`, export as `CONFIG`
+- Export type: `export type Config = typeof CONFIG;`
+- WHEN ADDING CONFIG: update mocked config in test setup files AND docker-compose
+
+### Logging
+
+```typescript
+import { LOGGER } from '../lib/logger.js';
+LOGGER.info('message', { requestId: req.requestId, key: value });
+```
+
+### Testing
+
+- Vitest + Supertest for API tests
+- Mock `CONFIG` and dependencies
+- `beforeEach` to clear mocks
+- Test success AND error cases
+- Verify response matches `ApiResponse` format
+
+## Frontend
+
+- Functional components with hooks, TypeScript
+- Types from `@secrets-vault/shared`
+- Vitest + Testing Library
+
+## Shared Package
+
+- Define types in `api/{feature}.ts`
+- Re-export from `index.ts`
+- Name pattern: `{Feature}{Action}Response`
+
+## Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Classes | PascalCase | `HealthController` |
+| Functions/variables | camelCase | `checkHealth` |
+| Types/interfaces | PascalCase | `ApiResponse` |
+| Files | kebab-case | `health-controller.ts` |
+| Constants | UPPER_SNAKE_CASE | `CONFIG`, `LOGGER` |
+| Error codes | SCREAMING_SNAKE_CASE | `'NOT_FOUND'` |
+
+## Imports
+
+```typescript
+// 1. Node.js built-ins
+import { join } from 'node:path';
+// 2. External packages
+import express from 'express';
+// 3. Internal (shared package = absolute, same package = relative)
+import type { ApiResponse } from '@secrets-vault/shared';
+import { LOGGER } from './lib/logger.js';
+```
+
+## Type Safety
+
+- NEVER use `any` — use `unknown` or proper types
+- Prefer type guards over type assertions
+- Extend Express types in `types/express.d.ts`

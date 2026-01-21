@@ -1,0 +1,45 @@
+# fly.toml app configuration file generated for secrets-vault on 2026-01-04T19:22:39+08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'secrets-vault'
+primary_region = 'syd'
+
+[build]
+  # Build args can be set here if needed
+  # args = { BUILDKIT_INLINE_CACHE = "1" }
+
+[deploy]
+  # Release command runs migrations or other pre-deployment tasks
+  # release_command = "npm run migrate"
+  strategy = "bluegreen"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = "10s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/api/v1/health"
+    protocol = "http"
+    timeout = "2s"
+    tls_skip_verify = false
+
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[experimental]
+  auto_rollback = true
