@@ -145,6 +145,12 @@ LOGGER.info('message', { requestId: req.requestId, key: value });
 - Test success AND error cases
 - Verify response matches `ApiResponse` format
 
+**Running tests (Agents MUST follow):**
+- Server: `npm run server test -- --run` from repo root
+- Frontend: `npm run frontend test -- --run` from repo root
+- ALL: `npm run test -- --run` from repo root
+- ALWAYS use `required_permissions: ["network"]` if running server tests — supertest binds to ports
+
 ## Frontend
 
 - Functional components with hooks, TypeScript
