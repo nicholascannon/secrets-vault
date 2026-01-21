@@ -1,6 +1,6 @@
 # secrets-vault
 
-A full-stack TypeScript monorepo with React frontend and Express backend, production-ready with error tracking, health checks, and deployment configurations.
+A vault for your dot files.
 
 ## Structure
 
