@@ -18,5 +18,10 @@
       "unsafeParameterDecoratorsEnabled": false
     },
     "globals": ["React", "JSX"]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
   }
 }
