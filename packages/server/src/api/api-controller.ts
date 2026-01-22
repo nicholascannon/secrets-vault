@@ -1,3 +1,4 @@
+import { clerkMiddleware } from '@clerk/express';
 import type { NotFoundResponse, TooManyRequestsResponse } from '@secrets-vault/shared/api/errors';
 import cors from 'cors';
 import express, { type Request, type Response, Router } from 'express';
@@ -41,6 +42,7 @@ export class ApiController implements Controller {
     );
 
     this.router.use(this.rateLimiter(config.rateLimit));
+    this.router.use(clerkMiddleware());
 
     /* API ROUTES HERE */
 
