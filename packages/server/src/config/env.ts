@@ -27,6 +27,10 @@ export const CONFIG = z
         .default('1.0')
         .transform((val) => (val ? Number.parseFloat(val) : undefined)),
     }),
+    auth: z.object({
+      clerkPublishableKey: z.string(),
+      clerkSecretKey: z.string(),
+    }),
   })
   .parse({
     env: process.env.NODE_ENV,
@@ -44,6 +48,10 @@ export const CONFIG = z
       dsn: process.env.SENTRY_DSN,
       environment: process.env.SENTRY_ENVIRONMENT,
       sampleRate: process.env.SENTRY_SAMPLE_RATE,
+    },
+    auth: {
+      clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+      clerkSecretKey: process.env.CLERK_SECRET_KEY,
     },
   });
 
