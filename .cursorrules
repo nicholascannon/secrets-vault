@@ -9,12 +9,14 @@ Monorepo: `server` (Express), `frontend` (React), `shared` (types)
 
 ## Code Style (MUST follow)
 
-- ESM imports with `.js` extensions (even for `.ts` files)
+- ONLY on backend use ESM imports with `.js` extensions (even for `.ts` files)
+  - Frontend ALWAYS import without extension
 - Single quotes, 2-space indent, semicolons always
 - Line width: 120 chars, trailing commas (ES5), arrow parens: always
 - `import type { ... }` for type-only imports
 - `node:` prefix for Node.js built-ins: `import { join } from 'node:path'`
 - Run `npm run lint:fix` from repo root to fix formatting
+- NEVER use null, always use undefined, if 3rd parties expose null then convert it to undefined
 
 ## Backend Architecture (CLEAN)
 
