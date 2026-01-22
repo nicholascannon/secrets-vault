@@ -1,11 +1,12 @@
 import { useClerk } from '@clerk/clerk-react';
+import { Button } from '@/components/ui/button';
 
 export function SignOutButton() {
   const { signOut } = useClerk();
 
   return (
-    <button type='button' onClick={() => signOut({ redirectUrl: '/login' })}>
+    <Button type='button' onClick={() => signOut({ redirectUrl: '/login' })}>
       Sign Out
-    </button>
+    </Button>
   );
 }
