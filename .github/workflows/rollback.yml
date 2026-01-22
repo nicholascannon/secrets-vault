@@ -14,8 +14,8 @@ on:
 
 jobs:
   rollback:
+    if: vars.ENABLE_CI == 'true' && github.event.inputs.confirmation == 'ROLLBACK'
     runs-on: ubuntu-latest
-    if: github.event.inputs.confirmation == 'ROLLBACK'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
