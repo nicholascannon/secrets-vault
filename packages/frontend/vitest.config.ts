@@ -9,6 +9,7 @@ export default mergeConfig(
       environment: 'jsdom',
       clearMocks: true,
       setupFiles: './src/config/testing.ts',
+      passWithNoTests: true,
     },
   })
 );

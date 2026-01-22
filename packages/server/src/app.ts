@@ -22,7 +22,19 @@ export function createApp({
   const app = express();
 
   app.set('trust proxy', 1);
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          'script-src': ["'self'", '*.clerk.accounts.dev', '*.clerk.com'],
+          'connect-src': ["'self'", '*.clerk.accounts.dev', '*.clerk.com', 'clerk-telemetry.com'],
+          'img-src': ["'self'", '*.clerk.accounts.dev', '*.clerk.com', 'data:', 'https:'],
+          'frame-src': ["'self'", '*.clerk.accounts.dev', '*.clerk.com'],
+          'worker-src': ["'self'", 'blob:'],
+        },
+      },
+    })
+  );
   app.use(requestIdMiddleware);
   app.use(sentryContextMiddleware);
   if (CONFIG.requestTimeout > 0) {
