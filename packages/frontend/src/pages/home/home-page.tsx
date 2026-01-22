@@ -1,6 +1,6 @@
-import { AuthenticatedPage, SignOutButton, useCurrentUser } from '@/auth';
+import { AuthenticatedPage, useCurrentUser } from '@/auth';
 
-function AuthenticatedHome() {
+function HomeContent() {
   const { user, isLoading } = useCurrentUser();
 
   if (isLoading) {
@@ -11,18 +11,8 @@ function AuthenticatedHome() {
   }
 
   return (
-    <div>
-      {user.imageUrl && (
-        <img src={user.imageUrl} alt='Profile' style={{ width: 64, height: 64, borderRadius: '50%' }} />
-      )}
-      <h1>Welcome, {user.firstName ?? user.email}</h1>
-      <p>Email: {user.email}</p>
-      {user.firstName && <p>First Name: {user.firstName}</p>}
-      {user.lastName && <p>Last Name: {user.lastName}</p>}
-      {user.createdAt && <p>Created At: {user.createdAt.toLocaleDateString()}</p>}
-      {user.updatedAt && <p>Updated At: {user.updatedAt.toLocaleDateString()}</p>}
-
-      <SignOutButton />
+    <div className='mx-16'>
+      <h1 className='text-4xl font-bold'>Welcome, {user.firstName ?? user.email}</h1>
     </div>
   );
 }
@@ -30,7 +20,7 @@ function AuthenticatedHome() {
 export function HomePage() {
   return (
     <AuthenticatedPage>
-      <AuthenticatedHome />
+      <HomeContent />
     </AuthenticatedPage>
   );
 }
