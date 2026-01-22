@@ -27,3 +27,5 @@ export type RequestTimeoutResponse = ApiResponse<
     method: string;
   }
 >;
+
+export type UnauthorizedResponse = ApiResponse<never, 'UNAUTHORIZED'>;
