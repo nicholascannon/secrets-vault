@@ -1,4 +1,5 @@
 import { ClerkProvider } from '@clerk/clerk-react';
+import { shadcn } from '@clerk/themes';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ENV } from '../config/env';
@@ -10,7 +11,12 @@ type AppProvidersProps = {
 
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <ClerkProvider publishableKey={ENV.clerkPublishableKey}>
+    <ClerkProvider
+      appearance={{
+        baseTheme: shadcn,
+      }}
+      publishableKey={ENV.clerkPublishableKey}
+    >
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </ClerkProvider>
   );
