@@ -5,7 +5,7 @@ beforeEach(() => {
   vi.mock('../lib/logger.js'); // silence logger during tests
 });
 
-const testConfig: Config = {
+export const TEST_CONFIG: Config = {
   port: 8000,
   release: 'test',
   env: 'test',
@@ -22,8 +22,12 @@ const testConfig: Config = {
     environment: 'local',
     sampleRate: 1.0,
   },
+  auth: {
+    clerkPublishableKey: 'pk_test_mock',
+    clerkSecretKey: 'sk_test_mock',
+  },
 };
 
 vi.mock('../config/env.js', () => ({
-  CONFIG: testConfig,
+  CONFIG: TEST_CONFIG,
 }));

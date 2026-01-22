@@ -1,5 +1,6 @@
 import type express from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TEST_CONFIG } from '../config/testing.js';
 
 vi.mock('../lib/frontend', () => ({
   serveFrontend: vi.fn(),
@@ -7,22 +8,8 @@ vi.mock('../lib/frontend', () => ({
 
 vi.mock('../config/env.js', () => ({
   CONFIG: {
+    ...TEST_CONFIG,
     env: 'production',
-    release: 'test',
-    port: 8000,
-    cors: {
-      hosts: [],
-    },
-    rateLimit: {
-      windowMs: 60_000,
-      max: 100,
-    },
-    requestTimeout: 30_000,
-    sentry: {
-      dsn: undefined,
-      environment: 'local',
-      sampleRate: 1.0,
-    },
   },
 }));
 
