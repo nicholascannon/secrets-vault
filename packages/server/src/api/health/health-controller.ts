@@ -54,7 +54,7 @@ export class HealthController implements Controller {
             success: false,
             data: {
               version: CONFIG.release,
-              db: db?.message || 'ok',
+              db,
             },
             error: {
               code: 'HEALTH_READINESS_CHECK_FAILED',

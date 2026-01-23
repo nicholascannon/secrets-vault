@@ -1,1 +1,1 @@
-docker compose up --build
+docker compose --profile app up --build 

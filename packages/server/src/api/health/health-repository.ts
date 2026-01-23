@@ -1,6 +1,6 @@
 export type HealthCheckResult = {
   isHealthy: boolean;
-  db?: Error;
+  db: 'ok' | 'error';
 };
 
 export interface HealthRepository {

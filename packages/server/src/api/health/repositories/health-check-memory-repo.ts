@@ -6,7 +6,7 @@ export class HealthCheckMemoryRepo implements HealthRepository {
   async checkHealth(): Promise<HealthCheckResult> {
     return {
       isHealthy: this.isHealthy,
-      db: this.isHealthy ? undefined : new Error('Database is not healthy'),
+      db: this.isHealthy ? 'ok' : 'error',
     };
   }
 

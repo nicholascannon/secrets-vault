@@ -31,6 +31,9 @@ export const CONFIG = z
       clerkPublishableKey: z.string(),
       clerkSecretKey: z.string(),
     }),
+    db: z.object({
+      url: z.string(),
+    }),
   })
   .parse({
     env: process.env.NODE_ENV,
@@ -52,6 +55,9 @@ export const CONFIG = z
     auth: {
       clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY,
       clerkSecretKey: process.env.CLERK_SECRET_KEY,
+    },
+    db: {
+      url: process.env.DATABASE_URL,
     },
   });
 

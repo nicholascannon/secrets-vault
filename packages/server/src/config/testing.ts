@@ -26,6 +26,9 @@ export const TEST_CONFIG: Config = {
     clerkPublishableKey: 'pk_test_mock',
     clerkSecretKey: 'sk_test_mock',
   },
+  db: {
+    url: 'postgresql://test:test@localhost:5432/secrets-vault-test',
+  },
 };
 
 vi.mock('../config/env.js', () => ({
