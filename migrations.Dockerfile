@@ -1,4 +1,3 @@
-# This is only used to run migrations locally.
 FROM node:24.11.0-alpine AS base
 
 WORKDIR /app
