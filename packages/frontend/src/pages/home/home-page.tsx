@@ -12,7 +12,7 @@ function HomeContent() {
 
   return (
     <div className='mx-16'>
-      <h1 className='text-4xl font-bold'>Welcome, {user.firstName ?? user.email}</h1>
+      <h1 className='text-4xl'>Welcome, {user.firstName ?? user.email}</h1>
     </div>
   );
 }
