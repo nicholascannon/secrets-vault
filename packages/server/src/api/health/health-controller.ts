@@ -34,7 +34,7 @@ export class HealthController implements Controller {
    * Returns 200 if dependencies are healthy, 503 if not.
    */
   private readiness = async (req: Request, res: Response) => {
-    const { isHealthy, db } = await this.healthCheckRepo.checkHealth();
+    const { isHealthy, db, clerk } = await this.healthCheckRepo.checkHealth();
 
     const statusCode = isHealthy ? 200 : 503;
     return res.status(statusCode).json<HealthReadinessResponse>(
@@ -44,6 +44,7 @@ export class HealthController implements Controller {
             data: {
               version: CONFIG.release,
               db: 'ok',
+              clerk: 'ok',
             },
             meta: {
               requestId: req.requestId,
@@ -55,6 +56,7 @@ export class HealthController implements Controller {
             data: {
               version: CONFIG.release,
               db,
+              clerk,
             },
             error: {
               code: 'HEALTH_READINESS_CHECK_FAILED',

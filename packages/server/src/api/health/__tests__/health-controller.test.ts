@@ -59,6 +59,7 @@ describe('HealthController', () => {
         success: true,
         data: {
           db: 'ok',
+          clerk: 'ok',
         },
         meta: {
           requestId: expect.any(String),
@@ -82,6 +83,7 @@ describe('HealthController', () => {
         success: false,
         data: {
           db: expect.any(String),
+          clerk: expect.any(String),
         },
         error: {
           code: 'HEALTH_READINESS_CHECK_FAILED',

@@ -4,6 +4,7 @@ export type HealthReadinessResponse = ApiResponse<
   {
     version: string;
     db: 'ok' | 'error';
+    clerk: 'ok' | 'error';
   },
   'HEALTH_READINESS_CHECK_FAILED',
   never
