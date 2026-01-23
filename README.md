@@ -2,6 +2,32 @@
 
 A vault for your dot files.
 
+## Table of Contents
+
+- [Structure](#structure)
+- [Prerequisites](#prerequisites)
+- [Development](#development)
+  - [Other Commands](#other-commands)
+  - [Database Commands](#database-commands)
+- [Docker](#docker)
+  - [Database](#database)
+- [Deployment](#deployment)
+  - [Fly.io](#flyio)
+  - [CI/CD Pipelines](#cicd-pipelines)
+- [Server Features](#server-features)
+  - [Architecture](#architecture)
+  - [Middleware](#middleware)
+  - [Authentication](#authentication)
+  - [Health Checks](#health-checks)
+  - [Production Features](#production-features)
+- [Configuration](#configuration)
+  - [Server Environment Variables](#server-environment-variables)
+- [Tech Stack](#tech-stack)
+  - [Frontend](#frontend)
+  - [Backend](#backend)
+  - [Shared](#shared)
+  - [Tooling](#tooling)
+
 ## Structure
 
 ```
