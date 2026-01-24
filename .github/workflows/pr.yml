@@ -21,6 +21,8 @@ jobs:
         run: npm ci
 
       - name: Validate Prisma schema
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx prisma validate
         working-directory: packages/server
 
