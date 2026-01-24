@@ -39,7 +39,42 @@ describe('zodErrorHandler middleware', () => {
         error: expect.objectContaining({
           code: 'INVALID_REQUEST',
           message: 'Invalid request',
-          details: expect.any(Object),
+          details: {
+            foo: expect.arrayContaining([expect.any(String)]),
+          },
+        }),
+        meta: expect.objectContaining({
+          requestId: 'test-request-id',
+          timestamp: expect.any(String),
+        }),
+      })
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('should handle root-level ZodError (formErrors)', () => {
+    const zodError = new z.ZodError([
+      {
+        code: 'invalid_type',
+        input: undefined,
+        path: [],
+        message: 'Invalid input: expected object, received undefined',
+        expected: 'object',
+      },
+    ]);
+
+    zodErrorHandler(zodError, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.objectContaining({
+          code: 'INVALID_REQUEST',
+          message: 'Invalid request',
+          details: {
+            _form: expect.arrayContaining([expect.stringContaining('expected object')]),
+          },
         }),
         meta: expect.objectContaining({
           requestId: 'test-request-id',
