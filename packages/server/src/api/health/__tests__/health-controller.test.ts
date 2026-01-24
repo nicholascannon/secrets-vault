@@ -20,7 +20,6 @@ describe('HealthController', () => {
       const response = await request(app).get('/api/v1/health/').expect(200);
 
       expect(response.body).toMatchObject({
-        success: true,
         data: {
           message: 'ok',
         },
@@ -57,7 +56,6 @@ describe('HealthController', () => {
       const response = await request(app).get('/api/v1/health/ready').expect(200);
 
       expect(response.body).toMatchObject({
-        success: true,
         data: {
           db: 'ok',
           clerk: 'ok',
@@ -81,14 +79,9 @@ describe('HealthController', () => {
       const response = await request(app).get('/api/v1/health/ready').expect(503);
 
       expect(response.body).toMatchObject({
-        success: false,
         data: {
-          db: expect.any(String),
-          clerk: expect.any(String),
-        },
-        error: {
-          code: 'HEALTH_READINESS_CHECK_FAILED',
-          message: 'Health readiness check failed',
+          db: 'error',
+          clerk: 'error',
         },
         meta: {
           requestId: expect.any(String),

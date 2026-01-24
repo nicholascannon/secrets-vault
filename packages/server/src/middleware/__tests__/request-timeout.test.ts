@@ -60,23 +60,20 @@ describe('requestTimeoutMiddleware', () => {
       timeout: 30_000,
     });
     expect(res.status).toHaveBeenCalledWith(408);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: 'REQUEST_TIMEOUT',
-          message: 'Request timeout',
-          details: expect.objectContaining({
-            path: '/v1/wallet',
-            method: 'GET',
-          }),
-        }),
-        meta: expect.objectContaining({
-          requestId: 'test-request-id',
-          timestamp: expect.any(String),
-        }),
-      })
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      error: {
+        code: 'REQUEST_TIMEOUT',
+        message: 'Request timeout',
+        details: {
+          path: '/v1/wallet',
+          method: 'GET',
+        },
+      },
+      meta: {
+        requestId: 'test-request-id',
+        timestamp: expect.any(String),
+      },
+    });
     expect(req.destroy).toHaveBeenCalled();
   });
 

@@ -33,22 +33,19 @@ describe('zodErrorHandler middleware', () => {
     zodErrorHandler(zodError, req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: 'INVALID_REQUEST',
-          message: 'Invalid request',
-          details: {
-            foo: expect.arrayContaining([expect.any(String)]),
-          },
-        }),
-        meta: expect.objectContaining({
-          requestId: 'test-request-id',
-          timestamp: expect.any(String),
-        }),
-      })
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'Invalid request',
+        details: {
+          foo: expect.arrayContaining([expect.any(String)]),
+        },
+      },
+      meta: {
+        requestId: 'test-request-id',
+        timestamp: expect.any(String),
+      },
+    });
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -66,22 +63,19 @@ describe('zodErrorHandler middleware', () => {
     zodErrorHandler(zodError, req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: 'INVALID_REQUEST',
-          message: 'Invalid request',
-          details: {
-            _form: expect.arrayContaining([expect.stringContaining('expected object')]),
-          },
-        }),
-        meta: expect.objectContaining({
-          requestId: 'test-request-id',
-          timestamp: expect.any(String),
-        }),
-      })
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'Invalid request',
+        details: {
+          _form: expect.arrayContaining([expect.stringContaining('expected object')]),
+        },
+      },
+      meta: {
+        requestId: 'test-request-id',
+        timestamp: expect.any(String),
+      },
+    });
     expect(next).not.toHaveBeenCalled();
   });
 

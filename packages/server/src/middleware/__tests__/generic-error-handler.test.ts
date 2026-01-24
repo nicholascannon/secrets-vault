@@ -39,19 +39,16 @@ describe('genericErrorHandler middleware', () => {
       })
     );
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Internal server error',
-        }),
-        meta: expect.objectContaining({
-          requestId: 'test-request-id',
-          timestamp: expect.any(String),
-        }),
-      })
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal server error',
+      },
+      meta: {
+        requestId: 'test-request-id',
+        timestamp: expect.any(String),
+      },
+    });
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -66,19 +63,16 @@ describe('genericErrorHandler middleware', () => {
         requestId: 'test-request-id',
       });
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.objectContaining({
-            code: 'INVALID_REQUEST_BODY',
-            message: 'Invalid request body',
-          }),
-          meta: expect.objectContaining({
-            requestId: 'test-request-id',
-            timestamp: expect.any(String),
-          }),
-        })
-      );
+      expect(res.json).toHaveBeenCalledWith({
+        error: {
+          code: 'INVALID_REQUEST_BODY',
+          message: 'Invalid request body',
+        },
+        meta: {
+          requestId: 'test-request-id',
+          timestamp: expect.any(String),
+        },
+      });
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -92,19 +86,16 @@ describe('genericErrorHandler middleware', () => {
         requestId: 'test-request-id',
       });
       expect(res.status).toHaveBeenCalledWith(413);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.objectContaining({
-            code: 'REQUEST_BODY_TOO_LARGE',
-            message: 'Request body too large',
-          }),
-          meta: expect.objectContaining({
-            requestId: 'test-request-id',
-            timestamp: expect.any(String),
-          }),
-        })
-      );
+      expect(res.json).toHaveBeenCalledWith({
+        error: {
+          code: 'REQUEST_BODY_TOO_LARGE',
+          message: 'Request body too large',
+        },
+        meta: {
+          requestId: 'test-request-id',
+          timestamp: expect.any(String),
+        },
+      });
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -118,19 +109,16 @@ describe('genericErrorHandler middleware', () => {
         requestId: 'test-request-id',
       });
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.objectContaining({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Internal server error',
-          }),
-          meta: expect.objectContaining({
-            requestId: 'test-request-id',
-            timestamp: expect.any(String),
-          }),
-        })
-      );
+      expect(res.json).toHaveBeenCalledWith({
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Internal server error',
+        },
+        meta: {
+          requestId: 'test-request-id',
+          timestamp: expect.any(String),
+        },
+      });
       expect(next).not.toHaveBeenCalled();
     });
   });
