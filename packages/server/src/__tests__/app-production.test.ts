@@ -13,6 +13,7 @@ vi.mock('../config/env.js', () => ({
   },
 }));
 
+import { MemoryFileRepo } from '../api/file/repositories/memory-file-repo.js';
 import { HealthCheckMemoryRepo } from '../api/health/repositories/health-check-memory-repo.js';
 import { createApp } from '../app.js';
 import { serveFrontend } from '../lib/frontend.js';
@@ -27,6 +28,7 @@ describe('createApp in production', () => {
       enableLogging: false,
       apiDependencies: {
         healthRepository: new HealthCheckMemoryRepo(),
+        fileRepository: new MemoryFileRepo(),
       },
     });
 

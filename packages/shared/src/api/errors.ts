@@ -1,9 +1,8 @@
-import type { ApiResponse } from '../types/api-response.js';
+import type { ApiErrorResponse } from '../types/api-response.js';
 
-export type TooManyRequestsResponse = ApiResponse<never, 'TOO_MANY_REQUESTS'>;
+export type TooManyRequestsResponse = ApiErrorResponse<'TOO_MANY_REQUESTS'>;
 
-export type NotFoundResponse = ApiResponse<
-  never,
+export type NotFoundResponse = ApiErrorResponse<
   'NOT_FOUND',
   {
     path: string;
@@ -11,16 +10,15 @@ export type NotFoundResponse = ApiResponse<
   }
 >;
 
-export type InvalidRequestBodyResponse = ApiResponse<never, 'INVALID_REQUEST_BODY'>;
+export type InvalidRequestBodyResponse = ApiErrorResponse<'INVALID_REQUEST_BODY'>;
 
-export type RequestBodyTooLargeResponse = ApiResponse<never, 'REQUEST_BODY_TOO_LARGE'>;
+export type RequestBodyTooLargeResponse = ApiErrorResponse<'REQUEST_BODY_TOO_LARGE'>;
 
-export type InternalServerErrorResponse = ApiResponse<never, 'INTERNAL_SERVER_ERROR'>;
+export type InternalServerErrorResponse = ApiErrorResponse<'INTERNAL_SERVER_ERROR'>;
 
-export type InvalidRequestResponse = ApiResponse<never, 'INVALID_REQUEST', Partial<Record<string, string[]>>>;
+export type InvalidRequestResponse = ApiErrorResponse<'INVALID_REQUEST', Partial<Record<string, string[]>>>;
 
-export type RequestTimeoutResponse = ApiResponse<
-  never,
+export type RequestTimeoutResponse = ApiErrorResponse<
   'REQUEST_TIMEOUT',
   {
     path: string;
@@ -28,7 +26,7 @@ export type RequestTimeoutResponse = ApiResponse<
   }
 >;
 
-export type UnauthorizedResponse = ApiResponse<never, 'UNAUTHORIZED'>;
+export type UnauthorizedResponse = ApiErrorResponse<'UNAUTHORIZED'>;
 
 export type ApiError =
   | TooManyRequestsResponse

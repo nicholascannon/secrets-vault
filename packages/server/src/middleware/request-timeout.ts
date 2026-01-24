@@ -14,7 +14,6 @@ export function requestTimeoutMiddleware(timeout: number) {
         });
 
         res.status(408).json<RequestTimeoutResponse>({
-          success: false,
           error: {
             code: 'REQUEST_TIMEOUT',
             message: 'Request timeout',

@@ -22,7 +22,6 @@ export function serveFrontend(app: Application, bundlePath: string) {
     // Return 404 for any file request (static middleware will handle it)
     if (req.path.includes('.')) {
       return res.status(404).json<NotFoundResponse>({
-        success: false,
         error: {
           code: 'NOT_FOUND',
           message: 'Resource not found',

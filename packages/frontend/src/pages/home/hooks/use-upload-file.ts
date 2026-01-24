@@ -13,9 +13,7 @@ export function useUploadFile() {
       toast.success('File uploaded successfully');
     },
     onError: (error) => {
-      if (!error.success) {
-        toast.error(error.error.message);
-      }
+      toast.error(error.error.message);
     },
   });
 }

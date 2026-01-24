@@ -1,4 +1,4 @@
-import type { ApiResponse } from '../types/api-response.js';
+import type { ApiErrorResponse, ApiResponse } from '../types/api-response.js';
 
 export type File = {
   id: string;
@@ -8,16 +8,11 @@ export type File = {
   updatedAt: string;
 };
 
-export type AddFileResponse = ApiResponse<{ id: string }, 'ADD_FILE_SUCCESS'>;
-export type GetUserFilesResponse = ApiResponse<
-  {
-    files: Array<File>;
-  },
-  'GET_USER_FILES_SUCCESS'
->;
+export type AddFileResponse = ApiResponse<{ id: string }>;
+export type GetUserFilesResponse = ApiResponse<{ files: Array<File> }>;
 
-export type FileAlreadyExistsResponse = ApiResponse<never, 'FILE_ALREADY_EXISTS'>;
+export type FileAlreadyExistsResponse = ApiErrorResponse<'FILE_ALREADY_EXISTS'>;
 
-export type DeleteFileResponse = ApiResponse<{ id: string; name: string }, 'DELETE_FILE_SUCCESS'>;
+export type DeleteFileResponse = ApiResponse<{ id: string; name: string }>;
 
-export type FileNotFoundResponse = ApiResponse<never, 'FILE_NOT_FOUND'>;
+export type FileNotFoundResponse = ApiErrorResponse<'FILE_NOT_FOUND'>;

@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../../app.js';
+import { MemoryFileRepo } from '../../file/repositories/memory-file-repo.js';
 import { HealthCheckMemoryRepo } from '../repositories/health-check-memory-repo.js';
 
 describe('HealthController', () => {
@@ -13,7 +14,7 @@ describe('HealthController', () => {
       const healthRepo = new HealthCheckMemoryRepo();
       const app = createApp({
         enableLogging: false,
-        apiDependencies: { healthRepository: healthRepo },
+        apiDependencies: { healthRepository: healthRepo, fileRepository: new MemoryFileRepo() },
       });
 
       const response = await request(app).get('/api/v1/health/').expect(200);
@@ -37,7 +38,7 @@ describe('HealthController', () => {
       healthRepo.setHealth(false);
       const app = createApp({
         enableLogging: false,
-        apiDependencies: { healthRepository: healthRepo },
+        apiDependencies: { healthRepository: healthRepo, fileRepository: new MemoryFileRepo() },
       });
 
       await request(app).get('/api/v1/health/').expect(200);
@@ -50,7 +51,7 @@ describe('HealthController', () => {
       healthRepo.setHealth(true);
       const app = createApp({
         enableLogging: false,
-        apiDependencies: { healthRepository: healthRepo },
+        apiDependencies: { healthRepository: healthRepo, fileRepository: new MemoryFileRepo() },
       });
 
       const response = await request(app).get('/api/v1/health/ready').expect(200);
@@ -74,7 +75,7 @@ describe('HealthController', () => {
       healthRepo.setHealth(false);
       const app = createApp({
         enableLogging: false,
-        apiDependencies: { healthRepository: healthRepo },
+        apiDependencies: { healthRepository: healthRepo, fileRepository: new MemoryFileRepo() },
       });
 
       const response = await request(app).get('/api/v1/health/ready').expect(503);
@@ -100,7 +101,7 @@ describe('HealthController', () => {
       const healthRepo = new HealthCheckMemoryRepo();
       const app = createApp({
         enableLogging: false,
-        apiDependencies: { healthRepository: healthRepo },
+        apiDependencies: { healthRepository: healthRepo, fileRepository: new MemoryFileRepo() },
       });
 
       const response = await request(app)
@@ -115,7 +116,7 @@ describe('HealthController', () => {
       const healthRepo = new HealthCheckMemoryRepo();
       const app = createApp({
         enableLogging: false,
-        apiDependencies: { healthRepository: healthRepo },
+        apiDependencies: { healthRepository: healthRepo, fileRepository: new MemoryFileRepo() },
       });
 
       const response = await request(app).get('/api/v1/health/ready').expect(200);

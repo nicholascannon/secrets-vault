@@ -13,9 +13,7 @@ export function useDeleteFile() {
       toast.success(`File ${response.data?.name} deleted successfully`);
     },
     onError: (error) => {
-      if (!error.success) {
-        toast.error(error.error.message);
-      }
+      toast.error(error.error.message);
     },
   });
 }

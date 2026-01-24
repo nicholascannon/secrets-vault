@@ -29,7 +29,6 @@ export class FileController implements Controller {
     const files = await this.fileService.getUserFiles(userId);
 
     return res.status(200).json<GetUserFilesResponse>({
-      success: true,
       data: {
         files,
       },
@@ -48,7 +47,6 @@ export class FileController implements Controller {
     const file = await this.fileService.addFile(userId, name, content);
 
     return res.status(201).json<AddFileResponse>({
-      success: true,
       data: {
         id: file.id,
       },
@@ -70,7 +68,6 @@ export class FileController implements Controller {
     const deletedFile = await this.fileService.deleteFile(userId, id);
 
     return res.status(200).json<DeleteFileResponse>({
-      success: true,
       data: {
         id: deletedFile.id,
         name: deletedFile.name,
@@ -85,7 +82,6 @@ export class FileController implements Controller {
   private errorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
     if (error instanceof FileAlreadyExistsError) {
       return res.status(409).json<FileAlreadyExistsResponse>({
-        success: false,
         error: {
           code: 'FILE_ALREADY_EXISTS',
           message: error.message,
@@ -98,7 +94,6 @@ export class FileController implements Controller {
     }
     if (error instanceof FileNotFoundError) {
       return res.status(404).json<FileNotFoundResponse>({
-        success: false,
         error: {
           code: 'FILE_NOT_FOUND',
           message: error.message,

@@ -70,9 +70,8 @@ export class ApiController implements Controller {
       },
       handler: (req, res) => {
         return res.status(429).json<TooManyRequestsResponse>({
-          success: false,
           error: {
-            code: 'TOO_MANY_REQUESTS' as const,
+            code: 'TOO_MANY_REQUESTS',
             message: 'Too many requests from this IP, please try again later.',
           },
           meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
@@ -82,7 +81,6 @@ export class ApiController implements Controller {
 
   private notFoundHandler = (req: Request, res: Response) => {
     return res.status(404).json<NotFoundResponse>({
-      success: false,
       error: {
         code: 'NOT_FOUND',
         message: 'Resource not found',

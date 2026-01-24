@@ -13,7 +13,6 @@ export const zodErrorHandler = (err: any, req: Request, res: Response, next: Nex
   }
 
   return res.status(400).json<InvalidRequestResponse>({
-    success: false,
     error: {
       code: 'INVALID_REQUEST',
       message: 'Invalid request',

@@ -13,7 +13,6 @@ export const genericErrorHandler = (error: any, req: Request, res: Response, _ne
   // We don't care about logging unauthorized errors
   if (error instanceof UnauthorizedError) {
     return res.status(401).json<UnauthorizedResponse>({
-      success: false,
       error: {
         code: 'UNAUTHORIZED',
         message: error.message,
@@ -31,7 +30,6 @@ export const genericErrorHandler = (error: any, req: Request, res: Response, _ne
 
   if ('type' in error && error.type === 'entity.parse.failed') {
     return res.status(400).json<InvalidRequestBodyResponse>({
-      success: false,
       error: {
         code: 'INVALID_REQUEST_BODY',
         message: 'Invalid request body',
@@ -41,7 +39,6 @@ export const genericErrorHandler = (error: any, req: Request, res: Response, _ne
   }
   if ('type' in error && error.type === 'entity.too.large') {
     return res.status(413).json<RequestBodyTooLargeResponse>({
-      success: false,
       error: {
         code: 'REQUEST_BODY_TOO_LARGE',
         message: 'Request body too large',
@@ -51,7 +48,6 @@ export const genericErrorHandler = (error: any, req: Request, res: Response, _ne
   }
 
   return res.status(500).json<InternalServerErrorResponse>({
-    success: false,
     error: {
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Internal server error',

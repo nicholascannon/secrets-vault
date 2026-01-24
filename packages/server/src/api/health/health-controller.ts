@@ -18,7 +18,6 @@ export class HealthController implements Controller {
    */
   private liveness = async (req: Request, res: Response) => {
     return res.status(200).json<HealthLivenessResponse>({
-      success: true,
       data: {
         version: CONFIG.release,
         message: 'ok',
@@ -37,36 +36,16 @@ export class HealthController implements Controller {
     const { isHealthy, db, clerk } = await this.healthCheckRepo.checkHealth();
 
     const statusCode = isHealthy ? 200 : 503;
-    return res.status(statusCode).json<HealthReadinessResponse>(
-      isHealthy
-        ? {
-            success: true,
-            data: {
-              version: CONFIG.release,
-              db: 'ok',
-              clerk: 'ok',
-            },
-            meta: {
-              requestId: req.requestId,
-              timestamp: new Date().toISOString(),
-            },
-          }
-        : {
-            success: false,
-            data: {
-              version: CONFIG.release,
-              db,
-              clerk,
-            },
-            error: {
-              code: 'HEALTH_READINESS_CHECK_FAILED',
-              message: 'Health readiness check failed',
-            },
-            meta: {
-              requestId: req.requestId,
-              timestamp: new Date().toISOString(),
-            },
-          }
-    );
+    return res.status(statusCode).json<HealthReadinessResponse>({
+      data: {
+        version: CONFIG.release,
+        db,
+        clerk,
+      },
+      meta: {
+        requestId: req.requestId,
+        timestamp: new Date().toISOString(),
+      },
+    });
   };
 }

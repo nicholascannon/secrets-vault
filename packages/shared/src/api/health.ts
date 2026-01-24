@@ -1,13 +1,9 @@
 import type { ApiResponse } from '../types/api-response.js';
 
-export type HealthReadinessResponse = ApiResponse<
-  {
-    version: string;
-    db: 'ok' | 'error';
-    clerk: 'ok' | 'error';
-  },
-  'HEALTH_READINESS_CHECK_FAILED',
-  never
->;
+export type HealthReadinessResponse = ApiResponse<{
+  version: string;
+  db: 'ok' | 'error';
+  clerk: 'ok' | 'error';
+}>;
 
-export type HealthLivenessResponse = ApiResponse<{ version: string; message: 'ok' }, never>;
+export type HealthLivenessResponse = ApiResponse<{ version: string; message: 'ok' }>;
