@@ -1,9 +1,12 @@
 import { SignUp } from '@clerk/clerk-react';
+import { Page } from '@/components/page';
 
 export function SignupPage() {
   return (
-    <div className='flex justify-center items-center h-screen'>
-      <SignUp routing='path' path='/signup' signInUrl='/login' />
-    </div>
+    <Page>
+      <div className='flex justify-center items-center mt-8'>
+        <SignUp routing='path' path='/signup' signInUrl='/login' />
+      </div>
+    </Page>
   );
 }
