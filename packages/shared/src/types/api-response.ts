@@ -22,3 +22,17 @@ export type ApiResponse<TData, TErrorCode extends string, TErrorDetails = unknow
         timestamp: string;
       };
     };
+
+// TODO: finish this refactor
+// export type ApiErrorResponse<TErrorCode extends string, TErrorDetails = unknown> = {
+//   success: false;
+//   error: {
+//     code: TErrorCode;
+//     message: string;
+//     details?: TErrorDetails;
+//   };
+//   meta: {
+//     requestId: string;
+//     timestamp: string;
+//   };
+// };

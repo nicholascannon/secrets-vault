@@ -9,3 +9,16 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model DotFile {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, createdAt])
+  @@map("dot_files")
+}

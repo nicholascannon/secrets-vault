@@ -6,11 +6,15 @@ import expressRateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import type { Config } from '../config/env.js';
 import type { Controller } from '../lib/controller.js';
 import { zodErrorHandler } from '../middleware/zod-error-handler.js';
+import { FileController } from './file/file-controller.js';
+import type { FileRepo } from './file/file-repo.js';
+import { FileService } from './file/file-service.js';
 import { HealthController } from './health/health-controller.js';
 import type { HealthRepository } from './health/health-repository.js';
 
 export type ApiDependencies = {
   healthRepository: HealthRepository;
+  fileRepository: FileRepo;
 };
 
 /**
@@ -20,9 +24,11 @@ export class ApiController implements Controller {
   public readonly router: Router;
 
   constructor(dependencies: ApiDependencies, config: Config) {
-    const { healthRepository } = dependencies;
+    const { healthRepository, fileRepository } = dependencies;
 
     const healthController = new HealthController(healthRepository);
+    const fileService = new FileService(fileRepository);
+    const fileController = new FileController(fileService);
 
     this.router = Router();
 
@@ -45,6 +51,7 @@ export class ApiController implements Controller {
     this.router.use(clerkMiddleware());
 
     /* API ROUTES HERE */
+    this.router.use('/v1/files', fileController.router);
 
     this.router.use(this.notFoundHandler);
     this.router.use(zodErrorHandler);

@@ -29,3 +29,13 @@ export type RequestTimeoutResponse = ApiResponse<
 >;
 
 export type UnauthorizedResponse = ApiResponse<never, 'UNAUTHORIZED'>;
+
+export type ApiError =
+  | TooManyRequestsResponse
+  | NotFoundResponse
+  | InvalidRequestBodyResponse
+  | RequestBodyTooLargeResponse
+  | InternalServerErrorResponse
+  | InvalidRequestResponse
+  | RequestTimeoutResponse
+  | UnauthorizedResponse;

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import './lib/instrument.js'; // import first
 import { createClerkClient } from '@clerk/express';
+import { PgFileRepo } from './api/file/file-repo.js';
 import { HealthCheckRepoImpl } from './api/health/repositories/health-check-repo-impl.js';
 import { createApp } from './app.js';
 import { CONFIG } from './config/env.js';
@@ -31,6 +32,7 @@ const clerkClient = createClerkClient({ secretKey: CONFIG.auth.clerkSecretKey })
 const app = createApp({
   apiDependencies: {
     healthRepository: new HealthCheckRepoImpl(db, clerkClient),
+    fileRepository: new PgFileRepo(db),
   },
 }).listen(CONFIG.port, () => {
   LOGGER.info('Server started', { port: CONFIG.port });
