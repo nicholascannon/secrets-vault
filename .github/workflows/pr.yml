@@ -36,7 +36,7 @@ jobs:
       - name: Check for migration drift
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-        run: npx prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-migrations ./prisma/migrations --to-schema ./prisma/schema.prisma --exit-code
         working-directory: packages/server
 
       - name: Set up Docker Buildx
