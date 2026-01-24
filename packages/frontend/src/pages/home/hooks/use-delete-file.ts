@@ -12,9 +12,6 @@ export function useDeleteFile() {
       queryClient.invalidateQueries({ queryKey: ['user-files'] });
       toast.success(`File ${response.data?.name} deleted successfully`);
     },
-    onError: (error) => {
-      toast.error(error.error.message);
-    },
   });
 }
 

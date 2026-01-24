@@ -17,3 +17,11 @@ export type ApiErrorResponse<TErrorCode extends string, TErrorDetails = unknown>
     timestamp: string;
   };
 };
+
+export function isApiResponse(response: unknown): response is ApiResponse<unknown> {
+  return typeof response === 'object' && response !== null && 'data' in response && 'meta' in response;
+}
+
+export function isApiErrorResponse(error: unknown): error is ApiErrorResponse<string> {
+  return typeof error === 'object' && error !== null && 'error' in error && 'meta' in error;
+}

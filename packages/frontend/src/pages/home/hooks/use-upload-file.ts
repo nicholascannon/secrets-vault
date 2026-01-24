@@ -12,9 +12,6 @@ export function useUploadFile() {
       queryClient.invalidateQueries({ queryKey: ['user-files'] });
       toast.success('File uploaded successfully');
     },
-    onError: (error) => {
-      toast.error(error.error.message);
-    },
   });
 }
 
