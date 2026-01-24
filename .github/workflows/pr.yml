@@ -6,7 +6,6 @@ on:
 
 jobs:
   lint-build-test-and-validate:
-    if: vars.ENABLE_CI == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

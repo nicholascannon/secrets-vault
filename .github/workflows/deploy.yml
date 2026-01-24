@@ -23,7 +23,6 @@ on:
 
 jobs:
   deploy:
-    if: vars.ENABLE_CI == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
