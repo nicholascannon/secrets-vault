@@ -22,15 +22,20 @@ jobs:
 
       - name: Validate Prisma schema
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Prisma commands require a valid DB url - use a fake one to avoid issues with prod DB
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         run: npx prisma validate
         working-directory: packages/server
 
       - name: Verify Prisma client generates
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         run: npx prisma generate
         working-directory: packages/server
 
       - name: Check for migration drift
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         run: npx prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --exit-code
         working-directory: packages/server
 
