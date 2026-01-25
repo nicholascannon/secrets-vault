@@ -36,11 +36,12 @@ jobs:
         run: npm ci
 
       - name: Check for missing migrations
+        env:
+          SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow
         run: |
           npx prisma migrate diff \
             --from-migrations ./prisma/migrations \
             --to-schema ./prisma/schema.prisma \
-            --shadow-database-url "postgresql://postgres:postgres@localhost:5432/shadow" \
             --exit-code
         working-directory: packages/server
 
