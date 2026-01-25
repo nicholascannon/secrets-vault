@@ -10,6 +10,7 @@ export function createDb(config: Config) {
   }
 
   const pool = new pg.Pool({
+    application_name: 'secrets-vault',
     connectionString: config.db.url,
     max: 10,
     min: 5,
