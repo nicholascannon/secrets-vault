@@ -48,7 +48,7 @@ export function UserFile({ file }: { file: File }) {
       </div>
 
       {isExpanded && (
-        <pre className='relative text-sm bg-accent p-2 rounded-sm'>
+        <pre className='relative text-sm bg-accent p-2 rounded-sm min-h-[50px]'>
           <Button onClick={onCopy} type='button' className='absolute top-2 right-2 cursor-pointer'>
             <CopyIcon className='w-4 h-4' />
           </Button>
