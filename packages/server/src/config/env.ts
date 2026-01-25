@@ -33,7 +33,10 @@ export const CONFIG = z
     }),
     db: z.object({
       url: z.string(),
-      certificate: z.string().optional(),
+      certificate: z
+        .string()
+        .optional()
+        .transform((val) => (val ? Buffer.from(val, 'base64').toString('utf-8') : undefined)),
     }),
   })
   .parse({
