@@ -31,7 +31,7 @@ jobs:
         env:
           # fake database url required for prisma commands
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-        run: docker build .
+        run: docker build . --build-arg DATABASE_URL=${{ env.DATABASE_URL }}
 
       - name: Install flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
