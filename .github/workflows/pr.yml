@@ -28,6 +28,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
+        env:
+          # fake database url required for prisma commands
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         run: docker build .
 
       - name: Install flyctl
