@@ -28,6 +28,7 @@ export const TEST_CONFIG: Config = {
   },
   db: {
     url: 'postgresql://test:test@localhost:5432/secrets-vault-test',
+    certificate: undefined,
   },
 };
 
