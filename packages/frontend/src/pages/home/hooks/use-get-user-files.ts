@@ -3,7 +3,7 @@ import type { GetUserFilesResponse } from '@secrets-vault/shared/api/files';
 import { useQuery } from '@tanstack/react-query';
 
 export function useGetUserFiles() {
-  return useQuery<GetUserFilesResponse, ApiError>({
+  return useQuery<GetUserFilesResponse, Error | ApiError>({
     queryKey: ['user-files'],
     queryFn: () => getUserFiles(),
   });
