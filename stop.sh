@@ -1,1 +1,1 @@
-docker compose down
+docker compose --profile app down
