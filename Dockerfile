@@ -13,6 +13,10 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /app
 
+# Vite requires VITE_* env vars at build time
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/*/node_modules ./packages/*/node_modules
 

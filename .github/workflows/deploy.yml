@@ -50,7 +50,10 @@ jobs:
         run: flyctl auth docker
 
       - name: Build Docker image
-        run: docker build -t registry.fly.io/secrets-vault:${{ steps.commit.outputs.hash }} .
+        run: |
+          docker build \
+            --build-arg VITE_CLERK_PUBLISHABLE_KEY="${{ secrets.CLERK_PUBLISHABLE_KEY }}" \
+            -t registry.fly.io/secrets-vault:${{ steps.commit.outputs.hash }} .
 
       - name: Build migrations image
         run: docker build -f migrations.Dockerfile -t migrations:local .
