@@ -2,10 +2,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import type { Config } from '../config/env.js';
 import { PrismaClient } from '../generated/prisma/client.js';
+import { LOGGER } from './logger.js';
 
 export function createDb(config: Config) {
-  // Check if connection string requires SSL (common with managed DBs like Fly.io, Supabase, etc.)
-  const requiresSsl = config.db.url.includes('sslmode=require');
+  if (config.db.certificate) {
+    LOGGER.info('DB Certificate found, enabling SSL');
+  }
 
   const pool = new pg.Pool({
     connectionString: config.db.url,
@@ -14,7 +16,12 @@ export function createDb(config: Config) {
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
     allowExitOnIdle: true,
-    ssl: requiresSsl ? { rejectUnauthorized: false } : undefined,
+    ssl: config.db.certificate
+      ? {
+          rejectUnauthorized: true,
+          ca: config.db.certificate,
+        }
+      : undefined,
   });
 
   const adapter = new PrismaPg(pool);

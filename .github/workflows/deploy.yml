@@ -77,8 +77,12 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_CERTIFICATE: ${{ secrets.DATABASE_CERTIFICATE }}
         run: |
-          flyctl secrets set DATABASE_URL="$DATABASE_URL" --app secrets-vault --stage
+          flyctl secrets set \
+            DATABASE_URL="$DATABASE_URL" \
+            DATABASE_CERTIFICATE="$DATABASE_CERTIFICATE" \
+            --app secrets-vault --stage
 
       - name: Set Clerk secrets
         env:

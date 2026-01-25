@@ -33,6 +33,7 @@ export const CONFIG = z
     }),
     db: z.object({
       url: z.string(),
+      certificate: z.string().optional(),
     }),
   })
   .parse({
@@ -58,6 +59,7 @@ export const CONFIG = z
     },
     db: {
       url: process.env.DATABASE_URL,
+      certificate: process.env.DATABASE_CERTIFICATE,
     },
   });
 
