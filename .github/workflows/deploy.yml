@@ -84,6 +84,15 @@ jobs:
             DATABASE_CERTIFICATE="$DATABASE_CERTIFICATE" \
             --app secrets-vault --stage
 
+      - name: Set ENCRYPTION_KEY secret
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+        run: |
+          flyctl secrets set \
+            ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+            --app secrets-vault --stage
+
       - name: Set Clerk secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

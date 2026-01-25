@@ -27,7 +27,7 @@ export class ApiController implements Controller {
     const { healthRepository, fileRepository } = dependencies;
 
     const healthController = new HealthController(healthRepository);
-    const fileService = new FileService(fileRepository);
+    const fileService = new FileService(fileRepository, config.encryption.key);
     const fileController = new FileController(fileService);
 
     this.router = Router();

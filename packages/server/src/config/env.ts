@@ -31,6 +31,15 @@ export const CONFIG = z
       clerkPublishableKey: z.string(),
       clerkSecretKey: z.string(),
     }),
+    encryption: z.object({
+      key: z
+        .string()
+        .min(32)
+        .transform((val) => Buffer.from(val, 'base64'))
+        .refine((val) => val.length === 32, {
+          message: 'ENCRYPTION_KEY must be 32 bytes (base64)',
+        }),
+    }),
     db: z.object({
       url: z.string(),
       certificate: z
@@ -59,6 +68,9 @@ export const CONFIG = z
     auth: {
       clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY,
       clerkSecretKey: process.env.CLERK_SECRET_KEY,
+    },
+    encryption: {
+      key: process.env.ENCRYPTION_KEY,
     },
     db: {
       url: process.env.DATABASE_URL,

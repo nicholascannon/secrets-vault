@@ -16,6 +16,7 @@ services:
       - PORT=8000
       - CORS_HOSTS=http://localhost:8000
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/secrets-vault
+      - ENCRYPTION_KEY=fYcYR5K6nFCeqWPfKUbTTHYhCB1SuqPFKbrc2YbxPjo=
     healthcheck:
       test:
         [
