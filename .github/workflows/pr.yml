@@ -6,31 +6,43 @@ on:
 
 jobs:
   lint-build-test-and-validate:
-    if: vars.ENABLE_CI == 'true'
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shadow
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: 24.11.0
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate Prisma schema
-        run: npx prisma validate
-        working-directory: packages/server
-
-      - name: Verify Prisma client generates
-        run: npx prisma generate
-        working-directory: packages/server
-
-      - name: Check for migration drift
-        run: npx prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --exit-code
+      - name: Check for missing migrations
+        env:
+          SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow
+        run: |
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema ./prisma/schema.prisma \
+            --exit-code
         working-directory: packages/server
 
       - name: Set up Docker Buildx
@@ -43,6 +55,6 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Validate Fly.io configuration
-        run: flyctl config validate --app secrets-vault
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl config validate
