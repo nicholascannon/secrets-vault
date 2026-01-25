@@ -41,7 +41,7 @@ COPY packages/frontend/package.json ./packages/frontend/
 COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN npm ci --omit=dev --workspaces --ignore-scripts
+RUN npm ci --omit=dev --workspace=@secrets-vault/server --workspace=@secrets-vault/shared --ignore-scripts
 
 COPY --from=builder /app/packages/frontend/dist ./packages/frontend/dist
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
