@@ -2,8 +2,6 @@
 
 A vault for your dot files.
 
-![App Demo](./demo.gif)
-
 ## Table of Contents
 
 - [Structure](#structure)
