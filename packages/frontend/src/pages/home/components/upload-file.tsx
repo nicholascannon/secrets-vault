@@ -2,7 +2,7 @@ import { Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useUploadFile } from '../hooks/use-upload-file';
+import { useUploadFile } from '../../../hooks/use-upload-file';
 
 export function UploadFile() {
   const inputRef = useRef<HTMLInputElement>(null);

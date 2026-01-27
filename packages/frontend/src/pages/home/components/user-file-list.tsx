@@ -1,6 +1,6 @@
 import { DisplayApiError } from '@/components/display-api-error';
 import { UserFile, UserFileSkeleton } from '../../../components/user-file';
-import { useGetUserFiles } from '../hooks/use-get-user-files';
+import { useGetUserFiles } from '../../../hooks/use-get-user-files';
 
 export function UserFileList() {
   const { data, isLoading, error } = useGetUserFiles();
