@@ -1,10 +1,10 @@
-import { ArrowLeftIcon, Loader2 } from 'lucide-react';
+import { ArrowLeftIcon } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { AuthenticatedPage } from '@/auth';
 import { DisplayApiError } from '@/components/display-api-error';
 import { Button } from '@/components/ui/button';
-import { UserFile } from '@/components/user-file';
-import { useGetFile } from './hooks/use-get-file';
+import { UserFile, UserFileSkeleton } from '@/components/user-file';
+import { useGetFile } from '../../hooks/use-get-file';
 
 export function FileView() {
   const { id } = useParams();
@@ -20,7 +20,7 @@ export function FileView() {
   return (
     <AuthenticatedPage redirectUrl={`/file/${id}`}>
       {error && <DisplayApiError error={error} />}
-      {isLoading && <Loader2 className='w-4 h-4 animate-spin mx-auto' />}
+      {isLoading && <UserFileSkeleton isExpanded />}
       {data?.data && (
         <>
           <BackButton />

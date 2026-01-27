@@ -74,9 +74,33 @@ export class PgFileRepo implements FileRepo {
         id,
         userId,
       },
+      include: { shareLinks: true },
     });
     if (!file) throw new FileNotFoundError(id);
 
     return this.toFile(file);
+  }
+
+  async getFileByShareLink(id: string, code: string): Promise<File> {
+    const shareLink = await this.db.shareLink.findUnique({
+      where: { code, fileId: id },
+      include: { file: true },
+    });
+    console.log('shareLink', shareLink);
+    if (!shareLink) throw new FileNotFoundError(code);
+
+    return this.toFile(shareLink.file);
+  }
+
+  async generateShareLink(fileId: string, code: string): Promise<string> {
+    const shareLink = await this.db.shareLink.upsert({
+      where: { fileId },
+      create: {
+        code,
+        fileId,
+      },
+      update: {}, // no-op, just return existing
+    });
+    return shareLink.code;
   }
 }

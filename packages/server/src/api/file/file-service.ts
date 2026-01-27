@@ -32,4 +32,21 @@ export class FileService {
       content: decrypt(file.content, this.encryptionKey),
     };
   }
+
+  async getFileByShareLink(id: string, code: string): Promise<File> {
+    const file = await this.fileRepo.getFileByShareLink(id, code);
+    return {
+      ...file,
+      content: decrypt(file.content, this.encryptionKey),
+    };
+  }
+
+  async generateShareLink(userId: string, id: string): Promise<string> {
+    // validates the user owns this file
+    const file = await this.fileRepo.getFile(userId, id);
+
+    const code = await this.fileRepo.generateShareLink(file.id, crypto.randomUUID());
+
+    return code;
+  }
 }

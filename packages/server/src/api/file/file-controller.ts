@@ -3,6 +3,7 @@ import type {
   DeleteFileResponse,
   FileAlreadyExistsResponse,
   FileNotFoundResponse,
+  GenerateShareLinkResponse,
   GetFileResponse,
   GetUserFilesResponse,
 } from '@secrets-vault/shared/api/files';
@@ -22,6 +23,8 @@ export class FileController implements Controller {
     this.router.post('/', requiresAuth, this.addFile);
     this.router.delete('/:id', requiresAuth, this.deleteFile);
     this.router.get('/:id', requiresAuth, this.getFile);
+    this.router.post('/:id/share', requiresAuth, this.generateShareLink);
+    this.router.get('/:id/share', this.getFileByShareLink);
     this.router.use(this.errorHandler);
   }
 
@@ -89,6 +92,42 @@ export class FileController implements Controller {
     const userId = getUserId(req);
     const { id } = this.getFileSchema.parse(req.params);
     const file = await this.fileService.getFile(userId, id);
+
+    return res.status(200).json<GetFileResponse>({
+      data: {
+        file,
+      },
+    });
+  };
+
+  private generateShareLinkSchema = z.object({
+    id: z.uuid(),
+  });
+
+  private generateShareLink = async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const { id } = this.generateShareLinkSchema.parse(req.params);
+    const code = await this.fileService.generateShareLink(userId, id);
+
+    return res.status(200).json<GenerateShareLinkResponse>({
+      data: {
+        id,
+        code,
+      },
+    });
+  };
+
+  private getFileByShareLinkSchema = z.object({
+    id: z.uuid(),
+    code: z.string().nonempty(),
+  });
+
+  private getFileByShareLink = async (req: Request, res: Response) => {
+    const { id, code } = this.getFileByShareLinkSchema.parse({
+      ...req.params,
+      ...req.query,
+    });
+    const file = await this.fileService.getFileByShareLink(id, code);
 
     return res.status(200).json<GetFileResponse>({
       data: {
