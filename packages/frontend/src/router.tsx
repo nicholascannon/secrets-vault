@@ -1,11 +1,11 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, RouterProvider } from 'react-router';
 import { FileShareView } from './pages/file-share-view';
 import { FileView } from './pages/file-view/file-view';
 import { HomePage } from './pages/home/index';
 import { LoginPage } from './pages/login/index';
 import { SignupPage } from './pages/signup/index';
 
-export const router = createBrowserRouter([
+const router = createBrowserRouter([
   {
     path: '/',
     element: <HomePage />,
@@ -27,3 +27,7 @@ export const router = createBrowserRouter([
     element: <SignupPage />,
   },
 ]);
+
+export function Router() {
+  return <RouterProvider router={router} />;
+}

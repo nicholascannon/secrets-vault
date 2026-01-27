@@ -1,6 +1,10 @@
-import { RouterProvider } from 'react-router';
-import { router } from './router';
+import { AppProviders } from './lib/providers';
+import { Router } from './router';
 
 export function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <AppProviders>
+      <Router />
+    </AppProviders>
+  );
 }
