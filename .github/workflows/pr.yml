@@ -51,6 +51,16 @@ jobs:
       - name: Build Docker image
         run: docker build .
 
+      - name: Build migrations Docker image
+        run: docker build -f migrations.Dockerfile -t migrations .
+
+      - name: Run migrations
+        run: |
+          docker run --rm \
+            --network host \
+            -e DATABASE_URL=postgresql://postgres:postgres@localhost:5432/shadow \
+            migrations
+
       - name: Install flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
