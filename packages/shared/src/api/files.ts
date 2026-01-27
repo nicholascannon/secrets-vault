@@ -18,3 +18,5 @@ export type DeleteFileResponse = ApiResponse<{ id: string; name: string }>;
 export type FileNotFoundResponse = ApiErrorResponse<'FILE_NOT_FOUND'>;
 
 export type GetFileResponse = ApiResponse<{ file: File }>;
+
+export type GenerateShareLinkResponse = ApiResponse<{ id: string; code: string }>;

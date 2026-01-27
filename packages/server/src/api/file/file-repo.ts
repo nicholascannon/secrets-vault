@@ -5,4 +5,6 @@ export interface FileRepo {
   addFile(userId: string, name: string, content: string): Promise<File>;
   deleteFile(userId: string, id: string): Promise<File>;
   getFile(userId: string, id: string): Promise<File>;
+  getFileByShareLink(id: string, code: string): Promise<File>;
+  generateShareLink(fileId: string, code: string): Promise<string>;
 }
