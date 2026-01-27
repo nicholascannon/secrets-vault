@@ -64,45 +64,21 @@ jobs:
       - name: Push Docker image
         run: docker push registry.fly.io/secrets-vault:${{ steps.commit.outputs.hash }}
 
-      - name: Set SENTRY_DSN secret (if provided)
+      - name: Set Fly.io secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
-          if [ -n "$SENTRY_DSN" ]; then
-            flyctl secrets set SENTRY_DSN="$SENTRY_DSN" --app secrets-vault --stage
+          SECRETS="DATABASE_URL=${{ secrets.DATABASE_URL }}"
+          SECRETS="$SECRETS DATABASE_CERTIFICATE=${{ secrets.DATABASE_CERTIFICATE }}"
+          SECRETS="$SECRETS ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}"
+          SECRETS="$SECRETS CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }}"
+          SECRETS="$SECRETS CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}"
+          
+          if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
+            SECRETS="$SECRETS SENTRY_DSN=${{ secrets.SENTRY_DSN }}"
           fi
-
-      - name: Set DATABASE_URL secret
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_CERTIFICATE: ${{ secrets.DATABASE_CERTIFICATE }}
-        run: |
-          flyctl secrets set \
-            DATABASE_URL="$DATABASE_URL" \
-            DATABASE_CERTIFICATE="$DATABASE_CERTIFICATE" \
-            --app secrets-vault --stage
-
-      - name: Set ENCRYPTION_KEY secret
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-        run: |
-          flyctl secrets set \
-            ENCRYPTION_KEY="$ENCRYPTION_KEY" \
-            --app secrets-vault --stage
-
-      - name: Set Clerk secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-        run: |
-          flyctl secrets set \
-            CLERK_PUBLISHABLE_KEY="$CLERK_PUBLISHABLE_KEY" \
-            CLERK_SECRET_KEY="$CLERK_SECRET_KEY" \
-            --app secrets-vault --stage
+          
+          flyctl secrets set $SECRETS --app secrets-vault --stage
 
       - name: Deploy to Fly.io
         env:
