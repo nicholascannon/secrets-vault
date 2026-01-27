@@ -38,4 +38,12 @@ export class MemoryFileRepo implements FileRepo {
     this.files.delete(id);
     return file;
   }
+
+  async getFile(userId: string, id: string): Promise<File> {
+    const file = this.files.get(id);
+    if (!file || !id.startsWith(`${userId}:`)) {
+      throw new FileNotFoundError(id);
+    }
+    return file;
+  }
 }

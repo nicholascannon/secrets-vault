@@ -3,6 +3,7 @@ import type {
   DeleteFileResponse,
   FileAlreadyExistsResponse,
   FileNotFoundResponse,
+  GetFileResponse,
   GetUserFilesResponse,
 } from '@secrets-vault/shared/api/files';
 import { type NextFunction, type Request, type Response, Router } from 'express';
@@ -20,6 +21,7 @@ export class FileController implements Controller {
     this.router.get('/', requiresAuth, this.getUserFiles);
     this.router.post('/', requiresAuth, this.addFile);
     this.router.delete('/:id', requiresAuth, this.deleteFile);
+    this.router.get('/:id', requiresAuth, this.getFile);
     this.router.use(this.errorHandler);
   }
 
@@ -35,14 +37,14 @@ export class FileController implements Controller {
     });
   };
 
-  private createFileSchema = z.object({
+  private addFileSchema = z.object({
     name: z.string().nonempty(),
     content: z.string().nonempty(),
   });
 
   private addFile = async (req: Request, res: Response) => {
     const userId = getUserId(req);
-    const { name, content } = this.createFileSchema.parse(req.body);
+    const { name, content } = this.addFileSchema.parse(req.body);
 
     const file = await this.fileService.addFile(userId, name, content);
 
@@ -75,6 +77,22 @@ export class FileController implements Controller {
       meta: {
         requestId: req.requestId,
         timestamp: new Date().toISOString(),
+      },
+    });
+  };
+
+  private getFileSchema = z.object({
+    id: z.uuid(),
+  });
+
+  private getFile = async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const { id } = this.getFileSchema.parse(req.params);
+    const file = await this.fileService.getFile(userId, id);
+
+    return res.status(200).json<GetFileResponse>({
+      data: {
+        file,
       },
     });
   };

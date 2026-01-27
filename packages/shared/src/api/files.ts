@@ -16,3 +16,5 @@ export type FileAlreadyExistsResponse = ApiErrorResponse<'FILE_ALREADY_EXISTS'>;
 export type DeleteFileResponse = ApiResponse<{ id: string; name: string }>;
 
 export type FileNotFoundResponse = ApiErrorResponse<'FILE_NOT_FOUND'>;
+
+export type GetFileResponse = ApiResponse<{ file: File }>;

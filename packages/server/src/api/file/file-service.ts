@@ -24,4 +24,12 @@ export class FileService {
   async deleteFile(userId: string, id: string): Promise<File> {
     return this.fileRepo.deleteFile(userId, id);
   }
+
+  async getFile(userId: string, id: string): Promise<File> {
+    const file = await this.fileRepo.getFile(userId, id);
+    return {
+      ...file,
+      content: decrypt(file.content, this.encryptionKey),
+    };
+  }
 }
