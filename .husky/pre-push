@@ -1,1 +1,3 @@
 npm test
+# this can be removed if it makes pushes too long
+npm run lint
