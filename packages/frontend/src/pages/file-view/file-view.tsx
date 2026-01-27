@@ -1,0 +1,32 @@
+import { ArrowLeftIcon, Loader2 } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router';
+import { AuthenticatedPage } from '@/auth';
+import { DisplayApiError } from '@/components/display-api-error';
+import { Button } from '@/components/ui/button';
+import { UserFile } from '@/components/user-file';
+import { useGetFile } from './hooks/use-get-file';
+
+export function FileView() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { data, isLoading, error } = useGetFile(id);
+
+  const BackButton = () => (
+    <Button className='mb-4 cursor-pointer' type='button' variant='ghost' onClick={() => navigate(-1)}>
+      <ArrowLeftIcon className='w-4 h-4' /> Back
+    </Button>
+  );
+
+  return (
+    <AuthenticatedPage redirectUrl={`/file/${id}`}>
+      {error && <DisplayApiError error={error} />}
+      {isLoading && <Loader2 className='w-4 h-4 animate-spin mx-auto' />}
+      {data?.data && (
+        <>
+          <BackButton />
+          <UserFile file={data.data.file} canExpand={false} defaultExpanded={true} onDelete={() => navigate(`/`)} />
+        </>
+      )}
+    </AuthenticatedPage>
+  );
+}

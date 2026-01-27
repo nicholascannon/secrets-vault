@@ -1,13 +1,24 @@
 import type { File } from '@secrets-vault/shared/api/files';
 import { ChevronDownIcon, ChevronRightIcon, CopyIcon, FileIcon, Loader2, TrashIcon } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useDeleteFile } from '../hooks/use-delete-file';
+import { useDeleteFile } from '../../pages/home/hooks/use-delete-file';
 
-export function UserFile({ file }: { file: File }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function UserFile({
+  file,
+  canExpand = true,
+  defaultExpanded = false,
+  onDelete,
+}: {
+  file: File;
+  canExpand?: boolean;
+  defaultExpanded?: boolean;
+  onDelete?: () => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { mutate: deleteFile, isPending } = useDeleteFile();
 
   const onCopy = () => {
@@ -26,7 +37,7 @@ export function UserFile({ file }: { file: File }) {
       type='button'
       className='text-destructive hover:text-destructive/80 cursor-pointer'
       variant='ghost'
-      onClick={() => deleteFile(file.id)}
+      onClick={() => deleteFile(file.id, { onSuccess: onDelete })}
       disabled={isPending}
     >
       {isPending ? <Loader2 className='w-4 h-4 animate-spin' /> : <TrashIcon className='w-4 h-4 ' />}
@@ -37,11 +48,13 @@ export function UserFile({ file }: { file: File }) {
     <div className='flex flex-col border rounded-md p-2 gap-4 bg-card'>
       <div className='flex items-center justify-between gap-2 font-bold'>
         <span className='flex items-center gap-2'>
-          <ExpandButton />
+          {canExpand && <ExpandButton />}
 
-          <FileIcon className='w-4 h-4' />
+          <Link className='flex items-center gap-2 hover:underline' to={`/file/${file.id}`}>
+            <FileIcon className='w-4 h-4' />
 
-          {file.name}
+            {file.name}
+          </Link>
         </span>
 
         <DeleteButton />

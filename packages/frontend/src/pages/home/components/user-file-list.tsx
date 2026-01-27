@@ -1,6 +1,6 @@
-import { isApiErrorResponse } from '@secrets-vault/shared';
+import { DisplayApiError } from '@/components/display-api-error';
+import { UserFile, UserFileSkeleton } from '../../../components/user-file';
 import { useGetUserFiles } from '../hooks/use-get-user-files';
-import { UserFile, UserFileSkeleton } from './user-file';
 
 export function UserFileList() {
   const { data, isLoading, error } = useGetUserFiles();
@@ -16,13 +16,7 @@ export function UserFileList() {
         </ul>
       )}
 
-      {error && (
-        <div className='text-destructive text-center'>
-          <p>There was an error loading your files.</p>
-          <p>Please try again later.</p>
-          {isApiErrorResponse(error) && <p>Request ID: {error.meta.requestId}</p>}
-        </div>
-      )}
+      {error && <DisplayApiError error={error} />}
 
       {files.length === 0 && !isLoading && !error && <div>No files found</div>}
       {files.length > 0 && (
