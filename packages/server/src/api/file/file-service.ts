@@ -17,7 +17,7 @@ export class FileService {
 
   async getUserFiles(userId: string): Promise<File[]> {
     const files = await this.fileRepo.getUserFiles(userId);
-    return files.map(this.decryptFile);
+    return files.map((f) => this.decryptFile(f));
   }
 
   async addFile(userId: string, name: string, content: string): Promise<File> {
