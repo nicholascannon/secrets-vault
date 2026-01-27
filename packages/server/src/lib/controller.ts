@@ -1,5 +1,9 @@
-import type { Router } from 'express';
+import { Router } from 'express';
 
-export interface Controller {
-  router: Router;
+export class Controller {
+  public readonly router: Router;
+
+  constructor() {
+    this.router = Router();
+  }
 }

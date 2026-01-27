@@ -1,10 +1,10 @@
 import { clerkMiddleware } from '@clerk/express';
 import type { NotFoundResponse, TooManyRequestsResponse } from '@secrets-vault/shared/api/errors';
 import cors from 'cors';
-import express, { type Request, type Response, Router } from 'express';
+import express, { type Request, type Response } from 'express';
 import expressRateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import type { Config } from '../config/env.js';
-import type { Controller } from '../lib/controller.js';
+import { Controller } from '../lib/controller.js';
 import { zodErrorHandler } from '../middleware/zod-error-handler.js';
 import { FileController } from './file/file-controller.js';
 import type { FileRepo } from './file/file-repo.js';
@@ -20,17 +20,15 @@ export type ApiDependencies = {
 /**
  * API controller that handles the API routes for the application.
  */
-export class ApiController implements Controller {
-  public readonly router: Router;
-
+export class ApiController extends Controller {
   constructor(dependencies: ApiDependencies, config: Config) {
+    super();
+
     const { healthRepository, fileRepository } = dependencies;
 
     const healthController = new HealthController(healthRepository);
     const fileService = new FileService(fileRepository, config.encryption.key);
     const fileController = new FileController(fileService);
-
-    this.router = Router();
 
     this.router.use(express.json({ limit: '100kb', strict: true }));
     this.router.use(express.urlencoded({ extended: true, limit: '100kb' }));

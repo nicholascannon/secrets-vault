@@ -1,14 +1,13 @@
 import type { HealthLivenessResponse, HealthReadinessResponse } from '@secrets-vault/shared/api/health';
-import { type Request, type Response, Router } from 'express';
+import type { Request, Response } from 'express';
 import { CONFIG } from '../../config/env.js';
-import type { Controller } from '../../lib/controller.js';
+import { Controller } from '../../lib/controller.js';
 import type { HealthRepository } from './health-repository.js';
 
-export class HealthController implements Controller {
-  public readonly router: Router;
-
+export class HealthController extends Controller {
   constructor(private readonly healthCheckRepo: HealthRepository) {
-    this.router = Router();
+    super();
+
     this.router.get('/', this.liveness);
     this.router.get('/ready', this.readiness);
   }

@@ -7,18 +7,17 @@ import type {
   GetFileResponse,
   GetUserFilesResponse,
 } from '@secrets-vault/shared/api/files';
-import { type NextFunction, type Request, type Response, Router } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
-import type { Controller } from '../../lib/controller.js';
+import { Controller } from '../../lib/controller.js';
 import { getUserId, requiresAuth } from '../../middleware/requires-auth.js';
 import { FileAlreadyExistsError, FileNotFoundError } from './file-errors.js';
 import type { FileService } from './file-service.js';
 
-export class FileController implements Controller {
-  public readonly router: Router;
-
+export class FileController extends Controller {
   constructor(private readonly fileService: FileService) {
-    this.router = Router();
+    super();
+
     this.router.get('/', requiresAuth, this.getUserFiles);
     this.router.post('/', requiresAuth, this.addFile);
     this.router.delete('/:id', requiresAuth, this.deleteFile);
