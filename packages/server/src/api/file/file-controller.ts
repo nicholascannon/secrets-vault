@@ -91,6 +91,7 @@ export class FileController implements Controller {
   private getFile = async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const { id } = this.getFileSchema.parse(req.params);
+
     const file = await this.fileService.getFile(userId, id);
 
     return res.status(200).json<GetFileResponse>({
@@ -107,6 +108,7 @@ export class FileController implements Controller {
   private generateShareLink = async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const { id } = this.generateShareLinkSchema.parse(req.params);
+
     const code = await this.fileService.generateShareLink(userId, id);
 
     return res.status(200).json<GenerateShareLinkResponse>({
@@ -127,6 +129,7 @@ export class FileController implements Controller {
       ...req.params,
       ...req.query,
     });
+
     const file = await this.fileService.getFileByShareLink(id, code);
 
     return res.status(200).json<GetFileResponse>({

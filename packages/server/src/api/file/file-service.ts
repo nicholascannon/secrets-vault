@@ -8,12 +8,16 @@ export class FileService {
     private readonly encryptionKey: Buffer
   ) {}
 
-  async getUserFiles(userId: string): Promise<File[]> {
-    const files = await this.fileRepo.getUserFiles(userId);
-    return files.map((file) => ({
+  private decryptFile(file: File): File {
+    return {
       ...file,
       content: decrypt(file.content, this.encryptionKey),
-    }));
+    };
+  }
+
+  async getUserFiles(userId: string): Promise<File[]> {
+    const files = await this.fileRepo.getUserFiles(userId);
+    return files.map(this.decryptFile);
   }
 
   async addFile(userId: string, name: string, content: string): Promise<File> {
@@ -27,18 +31,12 @@ export class FileService {
 
   async getFile(userId: string, id: string): Promise<File> {
     const file = await this.fileRepo.getFile(userId, id);
-    return {
-      ...file,
-      content: decrypt(file.content, this.encryptionKey),
-    };
+    return this.decryptFile(file);
   }
 
   async getFileByShareLink(id: string, code: string): Promise<File> {
     const file = await this.fileRepo.getFileByShareLink(id, code);
-    return {
-      ...file,
-      content: decrypt(file.content, this.encryptionKey),
-    };
+    return this.decryptFile(file);
   }
 
   async generateShareLink(userId: string, id: string): Promise<string> {
