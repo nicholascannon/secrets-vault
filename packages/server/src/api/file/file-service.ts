@@ -20,9 +20,10 @@ export class FileService {
     return files.map((f) => this.decryptFile(f));
   }
 
-  async addFile(userId: string, name: string, content: string): Promise<File> {
+  async addFile(userId: string, name: string, content: string): Promise<string> {
     const encryptedContent = encrypt(content, this.encryptionKey);
-    return this.fileRepo.addFile(userId, name, encryptedContent);
+    const file = await this.fileRepo.addFile(userId, name, encryptedContent);
+    return file.id;
   }
 
   async deleteFile(userId: string, id: string): Promise<File> {

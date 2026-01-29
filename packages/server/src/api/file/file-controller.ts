@@ -48,11 +48,11 @@ export class FileController extends Controller {
     const userId = getUserId(req);
     const { name, content } = this.addFileSchema.parse(req.body);
 
-    const file = await this.fileService.addFile(userId, name, content);
+    const fileId = await this.fileService.addFile(userId, name, content);
 
     return res.status(201).json<AddFileResponse>({
       data: {
-        id: file.id,
+        id: fileId,
       },
       meta: {
         requestId: req.requestId,
