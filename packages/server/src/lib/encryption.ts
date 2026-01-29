@@ -21,7 +21,7 @@ export function encrypt(plaintext: string, key: Buffer): string {
 export function decrypt(ciphertext: string, key: Buffer): string {
   try {
     const payload = Buffer.from(ciphertext, 'base64');
-    if (payload.length <= IV_LENGTH + AUTH_TAG_LENGTH) {
+    if (payload.length < IV_LENGTH + AUTH_TAG_LENGTH) {
       throw new EncryptionError('Invalid ciphertext payload');
     }
 
