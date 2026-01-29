@@ -4,5 +4,8 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.biome": "explicit"
   },
-  "cSpell.words": ["Buildx", "Ciphertext", "flyctl", "vitest"]
+  "cSpell.words": ["Buildx", "Ciphertext", "flyctl", "vitest"],
+  "files.associations": {
+    ".cursorrules": "markdown"
+  }
 }

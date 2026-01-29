@@ -1,195 +1,745 @@
-# Startup Stack Project Rules
+# Fullstack TypeScript Monorepo Rules
 
-## Project Structure
+## Architecture Overview
 
-Monorepo: `server` (Express), `frontend` (React), `shared` (types)
+```
+packages/
+├── server/      # Express API (Clean Architecture)
+├── frontend/    # React SPA (Vite + React Query)
+└── shared/      # Shared types (API contracts)
+```
+
 - TypeScript with ESM (`type: "module"`)
 - Biome for linting/formatting
 - Vitest for testing
+- Prisma or Drizzle for database ORM
 
-## Code Style (MUST follow)
+---
 
-- ONLY on backend use ESM imports with `.js` extensions (even for `.ts` files)
-  - Frontend ALWAYS import without extension
-- Single quotes, 2-space indent, semicolons always
-- Line width: 120 chars, trailing commas (ES5), arrow parens: always
+## Code Style (STRICT)
+
+| Rule | Backend | Frontend |
+|------|---------|----------|
+| Import extensions | `.js` (always) | None |
+| Quotes | Single | Single |
+| Indent | 2 spaces | 2 spaces |
+| Semicolons | Always | Always |
+| Line width | 120 chars | 120 chars |
+
+```typescript
+// Backend imports (ALWAYS .js extension)
+import { Router } from 'express';
+import { LOGGER } from '../lib/logger.js';
+import type { ApiResponse } from '@my-app/shared';
+
+// Frontend imports (NEVER extension)
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import type { GetUsersResponse } from '@my-app/shared/api/users';
+```
+
+**Additional rules:**
 - `import type { ... }` for type-only imports
 - `node:` prefix for Node.js built-ins: `import { join } from 'node:path'`
+- NEVER use `null` — always use `undefined`. Convert third-party `null` to `undefined`
+- NEVER use `any` — use `unknown` or proper types
 - Run `npm run lint:fix` from repo root to fix formatting
-- NEVER use null, always use undefined, if 3rd parties expose null then convert it to undefined
 
-## Backend Architecture (CLEAN)
+---
+
+## Backend Architecture
+
+### Directory Structure
+
+```
+server/src/
+├── api/
+│   ├── api-controller.ts        # Root router, composes features
+│   └── {feature}/
+│       ├── {feature}-controller.ts
+│       ├── {feature}-service.ts
+│       ├── {feature}-repo.ts    # Interface definition
+│       ├── {feature}-errors.ts  # Domain errors
+│       ├── __tests__/
+│       │   ├── {feature}-controller.test.ts
+│       │   └── {feature}-service.test.ts
+│       └── repositories/
+│           ├── pg-{feature}-repo.ts
+│           └── memory-{feature}-repo.ts
+├── config/
+│   ├── env.ts                   # Zod-validated config
+│   └── testing.ts               # Test setup + mocks
+├── lib/
+│   ├── controller.ts            # Base Controller class
+│   ├── errors.ts                # Generic errors (UnauthorizedError, etc.)
+│   └── logger.ts                # LOGGER singleton
+├── middleware/
+│   ├── requires-auth.ts
+│   ├── request-id.ts
+│   └── generic-error-handler.ts
+└── types/
+    └── express.d.ts             # Express type extensions
+```
 
 ### Layer Responsibilities
 
-**Controllers** (`api/{feature}/{feature}-controller.ts`)
-- Implement `Controller` interface with `public readonly router: Router`
-- Handle HTTP concerns ONLY — NO business logic
-- Validate requests, call service, construct response
-- Test with Supertest (happy path + common errors only)
+| Layer | Responsibility | Dependencies | Testing |
+|-------|---------------|--------------|---------|
+| Controller | HTTP only — validate, route, respond | Service | Supertest (happy path + key errors) |
+| Service | ALL business logic | Repository interface | Exhaustive unit tests |
+| Repository | Data access only | Database client | Rarely tested directly |
 
-**Services** (`api/{feature}/{feature}-service.ts`)
-- Contain ALL business logic for the domain
-- Depend on repository interfaces, never concrete implementations
-- Extract pure functions when it improves testability
-- Test exhaustively with mocked dependencies
-
-**Repositories** (`api/{feature}/repositories/{feature}-{impl}-repo.ts`)
-- Define interface first, then implement concrete class
-- Name pattern: `UserRepo` interface → `PgUserRepo`, `MemoryUserRepo`
-
-**Middleware** (`middleware/{name}.ts`)
-- Export as named function: `export function middlewareName(...)`
-- Signature: `(req: Request, res: Response, next: NextFunction) => void`
-
-### API Response Format (MUST follow)
-
-ALWAYS use `ApiResponse<TData, TErrorCode, TErrorDetails>` from `@secrets-vault/shared`:
+### Controller Pattern
 
 ```typescript
-// Success
-{ success: true, data: TData, meta: { requestId, timestamp } }
-
-// Error
-{ success: false, error: { code, message, details? }, meta: { requestId, timestamp } }
-```
-
-- ALWAYS include `meta` with `requestId` (from `req.requestId`) and `timestamp` (ISO string)
-- ALWAYS type responses: `res.status(200).json<TypeResponse>({ ... })`
-- Error codes: SCREAMING_SNAKE_CASE (`'NOT_FOUND'`, `'INVALID_REQUEST'`)
-
-### Architecture Pattern (Controller → Service → Repository)
-
-```typescript
-// api/user/repositories/user-repo.ts
-export interface UserRepo {
-  findById(id: string): Promise<User | null>;
-  save(user: User): Promise<User>;
-}
-
-// api/user/repositories/user-pg-repo.ts
-export class UserPgRepo implements UserRepo {
-  constructor(private readonly db: Database) {}
-
-  async findById(id: string): Promise<User | null> {
-    return this.db.query('SELECT * FROM users WHERE id = $1', [id]);
-  }
-
-  async save(user: User): Promise<User> {
-    // ...
-  }
-}
-
-// api/user/user-service.ts
-export class UserService {
-  constructor(private readonly userRepo: UserRepo) {}
-
-  async updateProfile(userId: string, data: UpdateProfileData): Promise<User> {
-    const user = await this.userRepo.findById(userId);
-    if (!user) {
-      throw new NotFoundError('USER_NOT_FOUND');
-    }
-    const updated = { ...user, ...data, updatedAt: new Date() };
-    return this.userRepo.save(updated);
-  }
-}
-
 // api/user/user-controller.ts
-export class UserController implements Controller {
-  public readonly router: Router;
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import { z } from 'zod';
+import type { CreateUserResponse, UserNotFoundResponse } from '@my-app/shared/api/users';
+import { Controller } from '../../lib/controller.js';
+import { requiresAuth, getUserId } from '../../middleware/requires-auth.js';
+import { UserNotFoundError } from './user-errors.js';
+import type { UserService } from './user-service.js';
 
+const CreateUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+});
+
+export class UserController extends Controller {
   constructor(private readonly userService: UserService) {
-    this.router = Router();
-    this.router.patch('/:id/profile', this.updateProfile);
+    super();
+    this.router.get('/', requiresAuth, this.getUsers);
+    this.router.post('/', requiresAuth, this.createUser);
+    this.router.get('/:id', requiresAuth, this.getUser);
+    this.router.use(this.errorHandler);
   }
 
-  private updateProfile = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const data = UpdateProfileSchema.parse(req.body);
-    const user = await this.userService.updateProfile(id, data);
-    return res.status(200).json<UpdateProfileResponse>({
-      success: true,
-      data: user,
-      meta: {
-        requestId: req.requestId,
-        timestamp: new Date().toISOString(),
-      },
+  private getUsers = async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const users = await this.userService.getUsers(userId);
+    return res.status(200).json<GetUsersResponse>({
+      data: { users },
+      meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
     });
+  };
+
+  private createUser = async (req: Request, res: Response) => {
+    const data = CreateUserSchema.parse(req.body);
+    const user = await this.userService.createUser(data);
+    return res.status(201).json<CreateUserResponse>({
+      data: { user },
+      meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
+    });
+  };
+
+  private getUser = async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const user = await this.userService.getUser(userId, req.params.id);
+    return res.status(200).json<GetUserResponse>({
+      data: { user },
+      meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
+    });
+  };
+
+  // Controller-level error handler for domain errors
+  private errorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
+    if (error instanceof UserNotFoundError) {
+      return res.status(404).json<UserNotFoundResponse>({
+        error: { code: 'USER_NOT_FOUND', message: error.message },
+        meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
+      });
+    }
+    next(error);
   };
 }
 ```
 
-Key points:
-- Controller: HTTP only — validate request, call service, format response
-- Service: ALL business logic — orchestrates repos, enforces rules
-- Repository: Data access only — interface first, concrete impl separate
-- Private handlers as arrow functions: `private handler = async (req, res) => { ... }`
-- Return early: `return res.status(...).json(...)`
+**Controller rules:**
+- Extend `Controller` base class
+- Private handlers as arrow functions (preserves `this`)
+- Always `return res.status(...).json<TypedResponse>(...)`
+- Always include `meta` with `requestId` and `timestamp`
+- Zod validation at controller level
+- Controller-level error handler for domain-specific errors
+
+### Service Pattern
+
+```typescript
+// api/user/user-service.ts
+import type { User } from '@my-app/shared';
+import { UserNotFoundError, UserAlreadyExistsError } from './user-errors.js';
+import type { UserRepo } from './user-repo.js';
+
+export class UserService {
+  constructor(private readonly userRepo: UserRepo) {}
+
+  async getUsers(ownerId: string): Promise<User[]> {
+    return this.userRepo.findByOwner(ownerId);
+  }
+
+  async getUser(ownerId: string, id: string): Promise<User> {
+    const user = await this.userRepo.findById(ownerId, id);
+    if (!user) throw new UserNotFoundError(id);
+    return user;
+  }
+
+  async createUser(data: { email: string; name: string }): Promise<User> {
+    const existing = await this.userRepo.findByEmail(data.email);
+    if (existing) throw new UserAlreadyExistsError(data.email);
+    return this.userRepo.create(data);
+  }
+}
+```
+
+**Service rules:**
+- Constructor takes repository interfaces (not concrete implementations)
+- Throws domain-specific errors
+- No HTTP concerns (no req/res)
+- Pure business logic
+
+### Repository Pattern
+
+```typescript
+// api/user/user-repo.ts (interface)
+import type { User } from '@my-app/shared';
+
+export interface UserRepo {
+  findByOwner(ownerId: string): Promise<User[]>;
+  findById(ownerId: string, id: string): Promise<User | undefined>;
+  findByEmail(email: string): Promise<User | undefined>;
+  create(data: { email: string; name: string }): Promise<User>;
+}
+```
+
+```typescript
+// api/user/repositories/pg-user-repo.ts
+import type { PrismaClient } from '@prisma/client';
+import type { User } from '@my-app/shared';
+import type { UserRepo } from '../user-repo.js';
+
+export class PgUserRepo implements UserRepo {
+  constructor(private readonly db: PrismaClient) {}
+
+  async findById(ownerId: string, id: string): Promise<User | undefined> {
+    const user = await this.db.user.findFirst({ where: { id, ownerId } });
+    return user ? this.toUser(user) : undefined;
+  }
+
+  async create(data: { email: string; name: string }): Promise<User> {
+    const user = await this.db.user.create({ data });
+    return this.toUser(user);
+  }
+
+  // Map Prisma model to domain type
+  private toUser(record: PrismaUser): User {
+    return {
+      id: record.id,
+      email: record.email,
+      name: record.name,
+      createdAt: record.createdAt.toISOString(),
+    };
+  }
+}
+```
+
+```typescript
+// api/user/repositories/memory-user-repo.ts (for testing)
+import type { User } from '@my-app/shared';
+import type { UserRepo } from '../user-repo.js';
+
+export class MemoryUserRepo implements UserRepo {
+  private users = new Map<string, User>();
+
+  async findById(ownerId: string, id: string): Promise<User | undefined> {
+    const user = this.users.get(id);
+    return user?.ownerId === ownerId ? user : undefined;
+  }
+
+  async create(data: { email: string; name: string }): Promise<User> {
+    const user: User = { id: crypto.randomUUID(), ...data, createdAt: new Date().toISOString() };
+    this.users.set(user.id, user);
+    return user;
+  }
+}
+```
+
+### Domain Errors
+
+```typescript
+// api/user/user-errors.ts
+export class UserNotFoundError extends Error {
+  constructor(public readonly id: string) {
+    super(`User with id ${id} not found`);
+    this.name = 'UserNotFoundError';
+  }
+}
+
+export class UserAlreadyExistsError extends Error {
+  constructor(public readonly email: string) {
+    super(`User with email ${email} already exists`);
+    this.name = 'UserAlreadyExistsError';
+  }
+}
+```
 
 ### Configuration
 
-- Zod validation in `config/env.ts`, export as `CONFIG`
-- Export type: `export type Config = typeof CONFIG;`
-- WHEN ADDING CONFIG: update mocked config in test setup files AND docker-compose
-
-### Logging
-
 ```typescript
-import { LOGGER } from '../lib/logger.js';
-LOGGER.info('message', { requestId: req.requestId, key: value });
+// config/env.ts
+import { z } from 'zod';
+
+export const CONFIG = z
+  .object({
+    env: z.enum(['development', 'production', 'test']),
+    port: z.string().transform(Number),
+    db: z.object({
+      url: z.string(),
+    }),
+    auth: z.object({
+      secretKey: z.string(),
+    }),
+  })
+  .parse({
+    env: process.env.NODE_ENV,
+    port: process.env.PORT,
+    db: { url: process.env.DATABASE_URL },
+    auth: { secretKey: process.env.AUTH_SECRET_KEY },
+  });
+
+export type Config = typeof CONFIG;
 ```
 
-### Testing
+**Config rules:**
+- Zod validation + transformation at module load
+- Export `CONFIG` constant and `Config` type
+- WHEN ADDING CONFIG: update `config/testing.ts` AND `docker-compose.yml`
 
-- Vitest + Supertest for API tests
-- Mock `CONFIG` and dependencies
-- `beforeEach` to clear mocks
-- Test success AND error cases
-- Verify response matches `ApiResponse` format
+### Middleware
+
+```typescript
+// middleware/requires-auth.ts
+import type { Request, Response, NextFunction } from 'express';
+import { getAuth } from '@clerk/express';
+import { UnauthorizedError } from '../lib/errors.js';
+
+export function requiresAuth(req: Request, _res: Response, next: NextFunction) {
+  const { userId } = getAuth(req);
+  if (!userId) return next(new UnauthorizedError());
+  req.userId = userId;
+  next();
+}
+
+export function getUserId(req: Request): string {
+  if (!req.userId) throw new UnauthorizedError();
+  return req.userId;
+}
+```
+
+### Backend Testing
+
+```typescript
+// config/testing.ts
+import { beforeEach, vi } from 'vitest';
+import type { Config } from '../config/env.js';
+
+// Silence logger
+beforeEach(() => {
+  vi.mock('../lib/logger.js');
+});
+
+// Auth mocking
+export const TEST_USER_ID = 'user_test123';
+const mockGetAuth = vi.fn();
+
+export function mockAuthenticated(userId = TEST_USER_ID) {
+  mockGetAuth.mockReturnValue({ userId });
+}
+
+export function mockUnauthenticated() {
+  mockGetAuth.mockReturnValue({ userId: undefined });
+}
+
+vi.mock('@clerk/express', () => ({
+  getAuth: (req: unknown) => mockGetAuth(req),
+  clerkMiddleware: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+// Test config
+export const TEST_CONFIG: Config = {
+  env: 'test',
+  port: 8000,
+  db: { url: 'postgresql://test:test@localhost:5432/test' },
+  auth: { secretKey: 'test-secret' },
+};
+
+vi.mock('../config/env.js', () => ({ CONFIG: TEST_CONFIG }));
+```
+
+```typescript
+// api/user/__tests__/user-controller.test.ts
+import request from 'supertest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { mockAuthenticated, mockUnauthenticated, TEST_USER_ID } from '../../../config/testing.js';
+import { createApp } from '../../../app.js';
+import { MemoryUserRepo } from '../repositories/memory-user-repo.js';
+
+describe('UserController', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns 200 with users', async () => {
+    mockAuthenticated();
+    const userRepo = new MemoryUserRepo();
+    await userRepo.create({ email: 'test@example.com', name: 'Test' });
+    const app = createApp({ userRepo });
+
+    const response = await request(app).get('/api/v1/users').expect(200);
+
+    expect(response.body.data.users).toHaveLength(1);
+    expect(response.body.meta.requestId).toBeDefined();
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    mockUnauthenticated();
+    const app = createApp({ userRepo: new MemoryUserRepo() });
+
+    await request(app).get('/api/v1/users').expect(401);
+  });
+});
+```
 
 **Running tests (Agents MUST follow):**
 - Server: `npm run server test -- --run` from repo root
 - Frontend: `npm run frontend test -- --run` from repo root
 - ALL: `npm run test -- --run` from repo root
-- ALWAYS use `required_permissions: ["network"]` if running server tests — supertest binds to ports
+- ALWAYS use `required_permissions: ["network"]` for server tests (Supertest binds ports)
 
-## Frontend
-
-- Functional components with hooks, TypeScript
-- Types from `@secrets-vault/shared`
-- Vitest + Testing Library
+---
 
 ## Shared Package
 
-- Define types in `api/{feature}.ts`
-- Re-export from `index.ts`
-- Name pattern: `{Feature}{Action}Response`
+### Directory Structure
+
+```
+shared/src/
+├── index.ts              # Exports types/api-response + types/user
+├── types/
+│   ├── api-response.ts   # ApiResponse, ApiErrorResponse, type guards
+│   └── user.ts           # Domain types
+└── api/
+    ├── errors.ts         # Generic error responses
+    └── {feature}.ts      # Feature-specific types
+```
+
+### API Response Types
+
+```typescript
+// types/api-response.ts
+export type ApiResponse<TData> = {
+  data: TData;
+  meta?: {
+    requestId: string;
+    timestamp: string;
+  };
+};
+
+export type ApiErrorResponse<TErrorCode extends string, TErrorDetails = unknown> = {
+  error: {
+    code: TErrorCode;
+    message: string;
+    details?: TErrorDetails;
+  };
+  meta: {
+    requestId: string;
+    timestamp: string;
+  };
+};
+
+export function isApiErrorResponse(error: unknown): error is ApiErrorResponse<string> {
+  return typeof error === 'object' && error !== null && 'error' in error && 'meta' in error;
+}
+```
+
+### Feature Types
+
+```typescript
+// api/users.ts
+import type { ApiErrorResponse, ApiResponse } from '../types/api-response.js';
+
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+};
+
+// Success responses
+export type GetUsersResponse = ApiResponse<{ users: User[] }>;
+export type GetUserResponse = ApiResponse<{ user: User }>;
+export type CreateUserResponse = ApiResponse<{ user: User }>;
+
+// Error responses
+export type UserNotFoundResponse = ApiErrorResponse<'USER_NOT_FOUND'>;
+export type UserAlreadyExistsResponse = ApiErrorResponse<'USER_ALREADY_EXISTS'>;
+```
+
+```typescript
+// api/errors.ts
+import type { ApiErrorResponse } from '../types/api-response.js';
+
+export type NotFoundResponse = ApiErrorResponse<'NOT_FOUND', { path: string; method: string }>;
+export type UnauthorizedResponse = ApiErrorResponse<'UNAUTHORIZED'>;
+export type InvalidRequestResponse = ApiErrorResponse<'INVALID_REQUEST', Record<string, string[]>>;
+export type InternalServerErrorResponse = ApiErrorResponse<'INTERNAL_SERVER_ERROR'>;
+
+export type ApiError =
+  | NotFoundResponse
+  | UnauthorizedResponse
+  | InvalidRequestResponse
+  | InternalServerErrorResponse;
+```
+
+### Import Pattern
+
+```typescript
+// Base types from package root
+import type { ApiResponse, ApiErrorResponse, isApiErrorResponse } from '@my-app/shared';
+
+// Feature types from api/{feature}
+import type { User, GetUsersResponse, UserNotFoundResponse } from '@my-app/shared/api/users';
+import type { ApiError } from '@my-app/shared/api/errors';
+```
+
+---
+
+## Frontend Architecture
+
+### Directory Structure
+
+```
+frontend/src/
+├── app.tsx
+├── router.tsx
+├── main.tsx
+├── index.css
+├── components/
+│   ├── ui/               # Reusable UI components (button, skeleton, etc.)
+│   └── {feature}/        # Feature components with index.ts barrel
+├── hooks/
+│   └── use-{action}.ts   # API hooks (use-get-users.ts, use-create-user.ts)
+├── pages/
+│   └── {page}/
+│       ├── index.ts
+│       ├── {page}-page.tsx
+│       └── components/   # Page-specific components
+├── auth/
+│   ├── index.ts
+│   ├── components/
+│   └── hooks/
+├── lib/
+│   ├── providers.tsx     # App providers (Query, Auth, Toast)
+│   ├── query-client.ts
+│   └── utils.ts          # cn() helper
+└── config/
+    └── env.ts
+```
+
+### API Hooks (React Query)
+
+```typescript
+// hooks/use-get-users.ts
+import type { ApiError } from '@my-app/shared/api/errors';
+import type { GetUsersResponse } from '@my-app/shared/api/users';
+import { useQuery } from '@tanstack/react-query';
+
+export function useGetUsers() {
+  return useQuery<GetUsersResponse, Error | ApiError>({
+    queryKey: ['users'],
+    queryFn: getUsers,
+  });
+}
+
+async function getUsers(): Promise<GetUsersResponse> {
+  const response = await fetch('/api/v1/users');
+  if (!response.ok) throw await response.json();
+  return response.json();
+}
+```
+
+```typescript
+// hooks/use-create-user.ts
+import type { ApiError } from '@my-app/shared/api/errors';
+import type { CreateUserResponse, UserAlreadyExistsResponse } from '@my-app/shared/api/users';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
+
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation<CreateUserResponse, ApiError | UserAlreadyExistsResponse, CreateUserInput>({
+    mutationFn: createUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User created');
+    },
+  });
+}
+
+async function createUser(data: CreateUserInput): Promise<CreateUserResponse> {
+  const response = await fetch('/api/v1/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw await response.json();
+  return response.json();
+}
+```
+
+```typescript
+// hooks/use-get-user.ts (conditional query)
+import { useQuery } from '@tanstack/react-query';
+
+export function useGetUser(id?: string) {
+  return useQuery({
+    queryKey: ['user', id],
+    queryFn: () => getUser(id!),
+    enabled: !!id, // Only fetch when id exists
+  });
+}
+```
+
+**Hook patterns:**
+- Separate fetch function from hook
+- Query keys: `['users']`, `['user', id]`
+- Mutations invalidate related queries
+- Toast on success
+- Throw JSON error for React Query error handling
+- Use `enabled` for conditional queries
+
+### Page Pattern
+
+```typescript
+// pages/home/home-page.tsx
+import { AuthenticatedPage, useCurrentUser } from '@/auth';
+import { UserList } from './components/user-list';
+
+function HomeContent() {
+  const { user } = useCurrentUser();
+  if (!user) return <div>Error loading user</div>;
+
+  return (
+    <div className="mx-8 flex flex-col gap-8">
+      <h1 className="text-4xl">Welcome, {user.name}</h1>
+      <UserList />
+    </div>
+  );
+}
+
+export function HomePage() {
+  return (
+    <AuthenticatedPage>
+      <HomeContent />
+    </AuthenticatedPage>
+  );
+}
+```
+
+### Component Pattern
+
+```typescript
+// components/user-card/user-card.tsx
+import type { User } from '@my-app/shared/api/users';
+
+type UserCardProps = {
+  user: User;
+  onDelete?: () => void;
+  showActions?: boolean;
+};
+
+export function UserCard({ user, onDelete, showActions = true }: UserCardProps) {
+  return (
+    <div className="rounded-lg border p-4">
+      <h3>{user.name}</h3>
+      <p>{user.email}</p>
+      {showActions && onDelete && (
+        <button onClick={onDelete}>Delete</button>
+      )}
+    </div>
+  );
+}
+```
+
+### Path Alias
+
+```typescript
+// Always use @/ for src imports
+import { Button } from '@/components/ui/button';
+import { useGetUsers } from '@/hooks/use-get-users';
+import { AuthenticatedPage } from '@/auth';
+```
+
+---
 
 ## Naming Conventions
 
 | Type | Convention | Example |
 |------|------------|---------|
-| Classes | PascalCase | `HealthController` |
-| Functions/variables | camelCase | `checkHealth` |
-| Types/interfaces | PascalCase | `ApiResponse` |
-| Files | kebab-case | `health-controller.ts` |
-| Constants | UPPER_SNAKE_CASE | `CONFIG`, `LOGGER` |
-| Error codes | SCREAMING_SNAKE_CASE | `'NOT_FOUND'` |
+| Classes | PascalCase | `UserController`, `UserService` |
+| Functions/variables | camelCase | `getUsers`, `isLoading` |
+| Types/interfaces | PascalCase | `ApiResponse`, `UserRepo` |
+| React components | PascalCase | `UserCard`, `HomePage` |
+| Files | kebab-case | `user-controller.ts`, `use-get-users.ts` |
+| Directories | kebab-case | `user-card/`, `api/` |
+| Constants | UPPER_SNAKE_CASE | `CONFIG`, `LOGGER`, `TEST_USER_ID` |
+| Error codes | SCREAMING_SNAKE_CASE | `'USER_NOT_FOUND'`, `'UNAUTHORIZED'` |
+| Hooks | camelCase with `use` prefix | `useGetUsers`, `useCreateUser` |
+| Response types | `{Action}{Feature}Response` | `GetUsersResponse`, `CreateUserResponse` |
+| Error response types | `{Feature}{Error}Response` | `UserNotFoundResponse` |
 
-## Imports
+---
+
+## Import Order
 
 ```typescript
-// 1. Node.js built-ins
+// 1. Node.js built-ins (with node: prefix)
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+
 // 2. External packages
 import express from 'express';
-// 3. Internal (shared package = absolute, same package = relative)
-import type { ApiResponse } from '@secrets-vault/shared';
-import { LOGGER } from './lib/logger.js';
+import { z } from 'zod';
+
+// 3. Internal packages (absolute)
+import type { ApiResponse } from '@my-app/shared';
+import type { User } from '@my-app/shared/api/users';
+
+// 4. Same package (relative, with .js on backend)
+import { LOGGER } from '../lib/logger.js';
+import { UserService } from './user-service.js';
 ```
 
-## Type Safety
+---
 
-- NEVER use `any` — use `unknown` or proper types
-- Prefer type guards over type assertions
-- Extend Express types in `types/express.d.ts`
+## Quick Reference
+
+**Add new API feature:**
+1. `shared/src/api/{feature}.ts` — types
+2. `server/src/api/{feature}/` — controller, service, repo, errors
+3. `frontend/src/hooks/use-{action}.ts` — React Query hooks
+
+**Add new config value:**
+1. `server/src/config/env.ts` — add to schema + parse
+2. `server/src/config/testing.ts` — add to TEST_CONFIG
+3. `docker-compose.yml` — add environment variable
+
+**Response format (ALWAYS):**
+```typescript
+// Success
+{ data: T, meta: { requestId, timestamp } }
+
+// Error
+{ error: { code, message, details? }, meta: { requestId, timestamp } }
+```
