@@ -5,6 +5,33 @@ beforeEach(() => {
   vi.mock('../lib/logger.js'); // silence logger during tests
 });
 
+// ============================================================================
+// Auth Mocking Utilities
+// ============================================================================
+
+export const TEST_USER_ID = 'user_test123';
+
+const mockGetAuth = vi.fn();
+
+/** Mock an authenticated user for protected routes */
+export function mockAuthenticated(userId = TEST_USER_ID) {
+  mockGetAuth.mockReturnValue({ userId });
+}
+
+/** Mock an unauthenticated request */
+export function mockUnauthenticated() {
+  mockGetAuth.mockReturnValue({ userId: undefined });
+}
+
+vi.mock('@clerk/express', () => ({
+  getAuth: (req: unknown) => mockGetAuth(req),
+  clerkMiddleware: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+// ============================================================================
+// Test Config
+// ============================================================================
+
 export const TEST_CONFIG: Config = {
   port: 8000,
   release: 'test',
