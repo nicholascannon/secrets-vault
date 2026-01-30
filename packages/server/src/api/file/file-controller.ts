@@ -1,11 +1,12 @@
-import type {
-  AddFileResponse,
-  DeleteFileResponse,
-  FileAlreadyExistsResponse,
-  FileNotFoundResponse,
-  GenerateShareLinkResponse,
-  GetFileResponse,
-  GetUserFilesResponse,
+import {
+  type AddFileResponse,
+  addFileSchema,
+  type DeleteFileResponse,
+  type FileAlreadyExistsResponse,
+  type FileNotFoundResponse,
+  type GenerateShareLinkResponse,
+  type GetFileResponse,
+  type GetUserFilesResponse,
 } from '@secrets-vault/shared/api/files';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
@@ -39,14 +40,9 @@ export class FileController extends Controller {
     });
   };
 
-  private addFileSchema = z.object({
-    name: z.string().nonempty(),
-    content: z.string().nonempty(),
-  });
-
   private addFile = async (req: Request, res: Response) => {
     const userId = getUserId(req);
-    const { name, content } = this.addFileSchema.parse(req.body);
+    const { name, content } = addFileSchema.parse(req.body);
 
     const fileId = await this.fileService.addFile(userId, name, content);
 

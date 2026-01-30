@@ -1,21 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isApiErrorResponse } from '@secrets-vault/shared';
+import { type AddFileSchema, addFileSchema } from '@secrets-vault/shared/api/files';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useUploadSecret } from '@/hooks/use-upload-secret';
-
-const formSchema = z.object({
-  name: z.string().nonempty(),
-  value: z.string().nonempty(),
-});
-type FormData = z.infer<typeof formSchema>;
 
 export function UploadDialog() {
   const [open, setOpen] = useState(false);
@@ -26,16 +20,16 @@ export function UploadDialog() {
     reset,
     formState: { errors },
     setError,
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+  } = useForm<AddFileSchema>({
+    resolver: zodResolver(addFileSchema),
     defaultValues: {
       name: '',
-      value: '',
+      content: '',
     },
   });
   const { mutate: uploadSecret, isPending } = useUploadSecret();
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = (data: AddFileSchema) => {
     uploadSecret(data, {
       onSuccess: () => {
         closeModal();
@@ -71,8 +65,8 @@ export function UploadDialog() {
           </Field>
 
           <Field>
-            <Textarea placeholder='Secret value' {...register('value')} />
-            <FieldError>{errors.value?.message}</FieldError>
+            <Textarea placeholder='Secret value' {...register('content')} />
+            <FieldError>{errors.content?.message}</FieldError>
           </Field>
 
           <DialogFooter className='w-full'>

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { ApiErrorResponse, ApiResponse } from '../types/api-response.js';
 
 export type File = {
@@ -20,3 +21,9 @@ export type FileNotFoundResponse = ApiErrorResponse<'FILE_NOT_FOUND'>;
 export type GetFileResponse = ApiResponse<{ file: File }>;
 
 export type GenerateShareLinkResponse = ApiResponse<{ id: string; code: string }>;
+
+export const addFileSchema = z.object({
+  name: z.string().nonempty(),
+  content: z.string().nonempty(),
+});
+export type AddFileSchema = z.infer<typeof addFileSchema>;
