@@ -1,4 +1,4 @@
-import { SignedIn, UserButton } from '@/auth';
+import { SignedIn, UserButton } from '@clerk/clerk-react';
 
 export function Nav() {
   return (

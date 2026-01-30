@@ -1,18 +1,36 @@
-import { useGetReadiness } from './hooks/use-get-readiness';
-import { AppProviders } from './lib/providers';
-import { Router } from './router';
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import { PageLayout, RequireAuth, RootLayout } from './layouts';
+import { FilePage } from './pages/file';
+import { HomePage } from './pages/home';
+import { LoginPage } from './pages/login';
+import { SharedFilePage } from './pages/shared-file';
+import { SignupPage } from './pages/signup';
+
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      {
+        element: <PageLayout />,
+        children: [
+          // Public routes
+          { path: '/login/*', element: <LoginPage /> },
+          { path: '/signup/*', element: <SignupPage /> },
+          { path: '/file/:id/share', element: <SharedFilePage /> },
+          // Protected routes
+          {
+            element: <RequireAuth />,
+            children: [
+              { path: '/', element: <HomePage /> },
+              { path: '/file/:id', element: <FilePage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+]);
 
 export function App() {
-  return (
-    <AppProviders>
-      <Readiness />
-      <Router />
-    </AppProviders>
-  );
-}
-
-function Readiness() {
-  const { data: readiness } = useGetReadiness();
-  if (readiness) console.log('VERSION', readiness.data);
-  return null;
+  return <RouterProvider router={router} />;
 }

@@ -1,12 +1,11 @@
 import { ArrowLeftIcon } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
-import { AuthenticatedPage } from '@/auth';
 import { DisplayApiError } from '@/components/display-api-error';
 import { Button } from '@/components/ui/button';
 import { UserFile, UserFileSkeleton } from '@/components/user-file';
 import { useGetFile } from '../../hooks/use-get-file';
 
-export function FileView() {
+export function FilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data, isLoading, error } = useGetFile(id);
@@ -18,7 +17,7 @@ export function FileView() {
   );
 
   return (
-    <AuthenticatedPage redirectUrl={`/file/${id}`}>
+    <section>
       {error && <DisplayApiError error={error} />}
       {isLoading && <UserFileSkeleton isExpanded />}
       {data?.data && (
@@ -27,6 +26,6 @@ export function FileView() {
           <UserFile file={data.data.file} canExpand={false} defaultExpanded={true} onDelete={() => navigate(`/`)} />
         </>
       )}
-    </AuthenticatedPage>
+    </section>
   );
 }

@@ -581,10 +581,14 @@ import type { ApiError } from '@my-app/shared/api/errors';
 
 ```
 frontend/src/
-├── app.tsx
-├── router.tsx
+├── app.tsx               # Router config + App component
 ├── main.tsx
 ├── index.css
+├── layouts/
+│   ├── index.ts
+│   ├── root-layout.tsx   # Providers wrapper
+│   ├── page-layout.tsx   # Nav + main container
+│   └── require-auth.tsx  # Auth guard for protected routes
 ├── components/
 │   ├── ui/               # Reusable UI components (button, skeleton, etc.)
 │   └── {feature}/        # Feature components with index.ts barrel
@@ -597,7 +601,6 @@ frontend/src/
 │       └── components/   # Page-specific components
 ├── auth/
 │   ├── index.ts
-│   ├── components/
 │   └── hooks/
 ├── lib/
 │   ├── providers.tsx     # App providers (Query, Auth, Toast)
@@ -729,30 +732,141 @@ export function CreateTaskDialog() {
 - Map API errors to field errors via `setError('fieldName', { message })`
 - Reset form on success with `reset()`
 
-### Page Pattern
+### Routing & Layouts
+
+Routes are defined in `app.tsx` using nested layout routes:
 
 ```typescript
-// pages/home/home-page.tsx
-import { AuthenticatedPage, useCurrentUser } from '@/auth';
-import { TaskList } from './components/task-list';
+// app.tsx
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import { PageLayout, RequireAuth, RootLayout } from './layouts';
+import { HomePage } from './pages/home';
+import { LoginPage } from './pages/login';
+import { SignupPage } from './pages/signup';
+import { TaskPage } from './pages/task';
+import { TasksPage } from './pages/tasks';
 
-function HomeContent() {
-  const { user } = useCurrentUser();
-  if (!user) return <div>Error loading user</div>;
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,        // Wraps app in providers
+    children: [
+      {
+        element: <PageLayout />,    // Adds nav + main container
+        children: [
+          // Public routes
+          { path: '/login/*', element: <LoginPage /> },
+          { path: '/signup/*', element: <SignupPage /> },
+          // Protected routes
+          {
+            element: <RequireAuth />,  // Auth guard
+            children: [
+              { path: '/', element: <HomePage /> },
+              { path: '/tasks', element: <TasksPage /> },
+              { path: '/tasks/:id', element: <TaskPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+]);
 
+export function App() {
+  return <RouterProvider router={router} />;
+}
+```
+
+**Layout components:**
+
+```typescript
+// layouts/root-layout.tsx — Wraps app in providers
+import { Outlet } from 'react-router';
+import { AppProviders } from '@/lib/providers';
+
+export function RootLayout() {
   return (
-    <div className="mx-8 flex flex-col gap-8">
-      <h1 className="text-4xl">Welcome, {user.firstName}</h1>
-      <TaskList />
-    </div>
+    <AppProviders>
+      <Outlet />
+    </AppProviders>
   );
 }
+```
 
-export function HomePage() {
+```typescript
+// layouts/page-layout.tsx — Adds nav header + main container
+import { Outlet } from 'react-router';
+import { Nav } from '@/components/nav';
+
+export function PageLayout() {
   return (
-    <AuthenticatedPage>
-      <HomeContent />
-    </AuthenticatedPage>
+    <>
+      <header className='mb-4'>
+        <Nav />
+      </header>
+      <main className='container mx-auto'>
+        <Outlet />
+      </main>
+    </>
+  );
+}
+```
+
+```typescript
+// layouts/require-auth.tsx — Redirects unauthenticated users to login
+import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-react';
+import { Loader } from 'lucide-react';
+import { Navigate, Outlet, useLocation } from 'react-router';
+
+export function RequireAuth() {
+  const { isLoaded } = useAuth();
+  const location = useLocation();
+
+  if (!isLoaded) {
+    return <Loader className='animate-spin' />;
+  }
+
+  return (
+    <>
+      <SignedIn>
+        <Outlet />
+      </SignedIn>
+      <SignedOut>
+        <Navigate to={`/login?redirect_url=${encodeURIComponent(location.pathname)}`} replace />
+      </SignedOut>
+    </>
+  );
+}
+```
+
+**Routing rules:**
+- Define routes in `app.tsx` using `createBrowserRouter` with nested config
+- Use layout routes (`element` without `path`) to wrap groups of routes
+- `RootLayout` wraps entire app in providers
+- `PageLayout` adds nav + main container for all pages
+- `RequireAuth` guards protected routes — nest protected routes as children
+- Pages are pure content components — no wrapper logic needed
+
+### Page Pattern
+
+Pages are simple content components. Auth and layout are handled by parent layout routes:
+
+```typescript
+// pages/tasks/tasks-page.tsx
+import { useGetTasks } from '@/hooks/use-get-tasks';
+import { TaskCard } from '@/components/task-card';
+
+export function TasksPage() {
+  const { data, isLoading } = useGetTasks();
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <section className="mx-8 flex flex-col gap-4">
+      <h1 className="text-4xl">Tasks</h1>
+      {data?.data.tasks.map((task) => (
+        <TaskCard key={task.id} task={task} />
+      ))}
+    </section>
   );
 }
 ```
@@ -788,7 +902,7 @@ export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
 // Always use @/ for src imports
 import { Button } from '@/components/ui/button';
 import { useGetUsers } from '@/hooks/use-get-users';
-import { AuthenticatedPage } from '@/auth';
+import { PageLayout, RequireAuth, RootLayout } from '@/layouts';
 ```
 
 ---
@@ -842,6 +956,7 @@ import { TaskService } from './task-service.js';
 2. `server/src/api/{feature}/` — controller (uses shared schema), service, repo, errors
 3. `frontend/src/hooks/use-{action}.ts` — Global React Query hooks
 4. `frontend/src/pages/{page}/` — page component with components and hooks required only for this page
+5. `frontend/src/app.tsx` — add route (nest under `RequireAuth` if protected)
 
 **Add new config value:**
 1. `server/src/config/env.ts` — add to schema + parse
