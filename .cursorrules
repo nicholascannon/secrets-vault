@@ -93,18 +93,19 @@ server/src/
 
 ```typescript
 // api/user/user-controller.ts
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import type { CreateUserResponse, UserNotFoundResponse } from '@my-app/shared/api/users';
+import {
+  createUserSchema,
+  type CreateUserResponse,
+  type GetUserResponse,
+  type GetUsersResponse,
+  type UserNotFoundResponse,
+} from '@my-app/shared/api/users';
 import { Controller } from '../../lib/controller.js';
 import { requiresAuth, getUserId } from '../../middleware/requires-auth.js';
 import { UserNotFoundError } from './user-errors.js';
 import type { UserService } from './user-service.js';
-
-const CreateUserSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1),
-});
 
 export class UserController extends Controller {
   constructor(private readonly userService: UserService) {
@@ -125,7 +126,8 @@ export class UserController extends Controller {
   };
 
   private createUser = async (req: Request, res: Response) => {
-    const data = CreateUserSchema.parse(req.body);
+    // Use shared schema for validation (same schema used by frontend forms)
+    const data = createUserSchema.parse(req.body);
     const user = await this.userService.createUser(data);
     return res.status(201).json<CreateUserResponse>({
       data: { user },
@@ -133,9 +135,11 @@ export class UserController extends Controller {
     });
   };
 
+  // For validation only used on the backend, define schema locally (not shared with FE)
   private getUser = async (req: Request, res: Response) => {
     const userId = getUserId(req);
-    const user = await this.userService.getUser(userId, req.params.id);
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const user = await this.userService.getUser(userId, id);
     return res.status(200).json<GetUserResponse>({
       data: { user },
       meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
@@ -160,7 +164,8 @@ export class UserController extends Controller {
 - Private handlers as arrow functions (preserves `this`)
 - Always `return res.status(...).json<TypedResponse>(...)`
 - Always include `meta` with `requestId` and `timestamp`
-- Zod validation at controller level
+- **Use shared Zod schemas** from `@my-app/shared/api/{feature}` for request body validation
+- Define param/query schemas locally in controller (not shared with FE)
 - Controller-level error handler for domain-specific errors
 
 ### Service Pattern
@@ -457,8 +462,17 @@ export type ApiErrorResponse<TErrorCode extends string, TErrorDetails = unknown>
   };
 };
 
-export function isApiErrorResponse(error: unknown): error is ApiErrorResponse<string> {
-  return typeof error === 'object' && error !== null && 'error' in error && 'meta' in error;
+// Type guard with optional error code narrowing
+export function isApiErrorResponse<TCode extends string>(error: unknown, code: TCode): error is ApiErrorResponse<TCode>;
+export function isApiErrorResponse(error: unknown): error is ApiErrorResponse<string>;
+export function isApiErrorResponse<TCode extends string>(
+  error: unknown,
+  code?: TCode
+): error is ApiErrorResponse<TCode> {
+  const isError = typeof error === 'object' && error !== null && 'error' in error && 'meta' in error;
+  if (!isError) return false;
+  if (code === undefined) return true;
+  return (error as ApiErrorResponse<string>).error.code === code;
 }
 ```
 
@@ -466,6 +480,7 @@ export function isApiErrorResponse(error: unknown): error is ApiErrorResponse<st
 
 ```typescript
 // api/users.ts
+import { z } from 'zod';
 import type { ApiErrorResponse, ApiResponse } from '../types/api-response.js';
 
 export type User = {
@@ -483,7 +498,58 @@ export type CreateUserResponse = ApiResponse<{ user: User }>;
 // Error responses
 export type UserNotFoundResponse = ApiErrorResponse<'USER_NOT_FOUND'>;
 export type UserAlreadyExistsResponse = ApiErrorResponse<'USER_ALREADY_EXISTS'>;
+
+// Shared validation schemas (used by both FE and BE)
+export const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().nonempty(),
+});
+export type CreateUserSchema = z.infer<typeof createUserSchema>;
 ```
+
+### Shared Zod Schemas
+
+Define validation schemas in `shared/src/api/{feature}.ts` that are used by **both** frontend and backend:
+
+```typescript
+// shared/src/api/{feature}.ts
+import { z } from 'zod';
+
+// Schema definition
+export const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().nonempty(),
+});
+
+// Inferred type (always export alongside schema)
+export type CreateUserSchema = z.infer<typeof createUserSchema>;
+```
+
+**Backend usage (controller validation):**
+```typescript
+// server/src/api/user/user-controller.ts
+import { createUserSchema } from '@my-app/shared/api/users';
+
+private createUser = async (req: Request, res: Response) => {
+  const data = createUserSchema.parse(req.body);
+  // ...
+};
+```
+
+**Frontend usage (react-hook-form):**
+```typescript
+// frontend/src/pages/users/components/create-user-dialog.tsx
+import { zodResolver } from '@hookform/resolvers/zod';
+import { type CreateUserSchema, createUserSchema } from '@my-app/shared/api/users';
+
+const { register, handleSubmit } = useForm<CreateUserSchema>({
+  resolver: zodResolver(createUserSchema),
+});
+```
+
+**Schema naming:**
+- Schema: `{action}{Feature}Schema` (camelCase) — `createUserSchema`, `addFileSchema`
+- Type: `{Action}{Feature}Schema` (PascalCase) — `CreateUserSchema`, `AddFileSchema`
 
 ```typescript
 // api/errors.ts
@@ -504,13 +570,17 @@ export type ApiError =
 ### Import Pattern
 
 ```typescript
-// Base types from package root
-import type { ApiResponse, ApiErrorResponse, isApiErrorResponse } from '@my-app/shared';
+// Base types + type guards from package root
+import { isApiErrorResponse } from '@my-app/shared';
+import type { ApiResponse, ApiErrorResponse } from '@my-app/shared';
 
-// Feature types from api/{feature}
+// Feature types + schemas from api/{feature}
+import { createUserSchema, type CreateUserSchema } from '@my-app/shared/api/users';
 import type { User, GetUsersResponse, UserNotFoundResponse } from '@my-app/shared/api/users';
 import type { ApiError } from '@my-app/shared/api/errors';
 ```
+
+**Note:** Import schemas as values (not `type`), import types with `type` keyword.
 
 ---
 
@@ -619,6 +689,67 @@ export function useGetUser(id?: string) {
 - Throw JSON error for React Query error handling
 - Use `enabled` for conditional queries
 
+### Form Pattern (react-hook-form + shared Zod schema)
+
+```typescript
+// pages/users/components/create-user-dialog.tsx
+import { zodResolver } from '@hookform/resolvers/zod';
+import { isApiErrorResponse } from '@my-app/shared';
+import { type CreateUserSchema, createUserSchema } from '@my-app/shared/api/users';
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { Field, FieldError } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { useCreateUser } from '@/hooks/use-create-user';
+
+export function CreateUserDialog() {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setError,
+  } = useForm<CreateUserSchema>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: { email: '', name: '' },
+  });
+  const { mutate: createUser, isPending } = useCreateUser();
+
+  const onSubmit = (data: CreateUserSchema) => {
+    createUser(data, {
+      onSuccess: () => reset(),
+      onError: (error) => {
+        // Type-safe error handling with code narrowing
+        if (isApiErrorResponse(error, 'USER_ALREADY_EXISTS')) {
+          setError('email', { message: 'A user with this email already exists' });
+        }
+      },
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Field>
+        <Input type="email" placeholder="Email" {...register('email')} />
+        <FieldError>{errors.email?.message}</FieldError>
+      </Field>
+      <Field>
+        <Input type="text" placeholder="Name" {...register('name')} />
+        <FieldError>{errors.name?.message}</FieldError>
+      </Field>
+      <Button disabled={isPending} type="submit">Create</Button>
+    </form>
+  );
+}
+```
+
+**Form patterns:**
+- Use `zodResolver(sharedSchema)` for client-side validation matching backend
+- Type form with `useForm<SchemaType>` using inferred type from shared schema
+- Use `isApiErrorResponse(error, 'ERROR_CODE')` for type-safe error narrowing
+- Map API errors to field errors via `setError('fieldName', { message })`
+- Reset form on success with `reset()`
+
 ### Page Pattern
 
 ```typescript
@@ -698,6 +829,8 @@ import { AuthenticatedPage } from '@/auth';
 | Hooks | camelCase with `use` prefix | `useGetUsers`, `useCreateUser` |
 | Response types | `{Action}{Feature}Response` | `GetUsersResponse`, `CreateUserResponse` |
 | Error response types | `{Feature}{Error}Response` | `UserNotFoundResponse` |
+| Zod schemas | `{action}{Feature}Schema` (camelCase) | `createUserSchema`, `addFileSchema` |
+| Schema types | `{Action}{Feature}Schema` (PascalCase) | `CreateUserSchema`, `AddFileSchema` |
 
 ---
 
@@ -726,9 +859,10 @@ import { UserService } from './user-service.js';
 ## Quick Reference
 
 **Add new API feature:**
-1. `shared/src/api/{feature}.ts` — types
-2. `server/src/api/{feature}/` — controller, service, repo, errors
-3. `frontend/src/hooks/use-{action}.ts` — React Query hooks
+1. `shared/src/api/{feature}.ts` — types, response types, and Zod schemas
+2. `server/src/api/{feature}/` — controller (uses shared schema), service, repo, errors
+3. `frontend/src/hooks/use-{action}.ts` — Global React Query hooks
+4. `frontend/src/pages/{page}/` — page component with components and hooks required only for this page
 
 **Add new config value:**
 1. `server/src/config/env.ts` — add to schema + parse
