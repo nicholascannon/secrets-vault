@@ -1,0 +1,209 @@
+---
+description: Express backend architecture patterns for Clean Architecture
+globs: packages/server/**
+alwaysApply: false
+---
+
+# Backend Architecture
+
+## Directory Structure
+
+```
+server/src/
+├── api/
+│   ├── api-controller.ts        # Root router, composes features
+│   └── {feature}/
+│       ├── {feature}-controller.ts
+│       ├── {feature}-service.ts
+│       ├── {feature}-repo.ts    # Interface definition
+│       ├── {feature}-errors.ts  # Domain errors
+│       ├── __tests__/
+│       └── repositories/
+│           ├── pg-{feature}-repo.ts
+│           └── memory-{feature}-repo.ts
+├── config/
+│   ├── env.ts                   # Zod-validated config
+│   └── testing.ts               # Test setup + mocks
+├── lib/
+│   ├── controller.ts            # Base Controller class
+│   ├── errors.ts                # Generic errors
+│   └── logger.ts                # LOGGER singleton
+├── middleware/
+└── types/
+```
+
+## Layer Responsibilities
+
+| Layer | Responsibility | Dependencies | Testing |
+|-------|---------------|--------------|---------|
+| Controller | HTTP only — validate, route, respond | Service | Supertest (happy path + key errors) |
+| Service | ALL business logic | Repository interface | Exhaustive unit tests |
+| Repository | Data access only | Database client | Rarely tested directly |
+
+## Controller Pattern
+
+```typescript
+import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { createTaskSchema, type CreateTaskResponse } from '@secrets-vault/shared/api/tasks';
+import { Controller } from '../../lib/controller.js';
+import { requiresAuth, getUserId } from '../../middleware/requires-auth.js';
+import { TaskNotFoundError } from './task-errors.js';
+import type { TaskService } from './task-service.js';
+
+export class TaskController extends Controller {
+  constructor(private readonly taskService: TaskService) {
+    super();
+    this.router.get('/', requiresAuth, this.getTasks);
+    this.router.post('/', requiresAuth, this.createTask);
+    this.router.use(this.errorHandler);
+  }
+
+  private getTasks = async (req: Request, res: Response) => {
+    const ownerId = getUserId(req);
+    const tasks = await this.taskService.getTasks(ownerId);
+    return res.status(200).json<GetTasksResponse>({
+      data: { tasks },
+      meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
+    });
+  };
+
+  private createTask = async (req: Request, res: Response) => {
+    const ownerId = getUserId(req);
+    const data = createTaskSchema.parse(req.body);  // Use shared schema
+    const task = await this.taskService.createTask(ownerId, data);
+    return res.status(201).json<CreateTaskResponse>({
+      data: { task },
+      meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
+    });
+  };
+
+  private errorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
+    if (error instanceof TaskNotFoundError) {
+      return res.status(404).json<TaskNotFoundResponse>({
+        error: { code: 'TASK_NOT_FOUND', message: error.message },
+        meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
+      });
+    }
+    next(error);
+  };
+}
+```
+
+**Controller rules:**
+- Extend `Controller` base class
+- Private handlers as arrow functions (preserves `this`)
+- Always `return res.status(...).json<TypedResponse>(...)`
+- Always include `meta` with `requestId` and `timestamp`
+- Use shared Zod schemas from `@secrets-vault/shared/api/{feature}` for request body validation
+- Define param/query schemas locally (not shared with FE)
+- Controller-level error handler for domain-specific errors
+
+## Service Pattern
+
+```typescript
+import type { Task } from '@secrets-vault/shared/api/tasks';
+import { TaskNotFoundError } from './task-errors.js';
+import type { TaskRepo } from './task-repo.js';
+
+export class TaskService {
+  constructor(private readonly taskRepo: TaskRepo) {}
+
+  async getTask(ownerId: string, id: string): Promise<Task> {
+    const task = await this.taskRepo.findById(ownerId, id);
+    if (!task) throw new TaskNotFoundError(id);
+    return task;
+  }
+}
+```
+
+**Service rules:**
+- Constructor takes repository interfaces (not concrete implementations)
+- Throws domain-specific errors
+- No HTTP concerns (no req/res)
+- Pure business logic
+
+## Repository Pattern
+
+```typescript
+// Interface (task-repo.ts)
+export interface TaskRepo {
+  findByOwner(ownerId: string): Promise<Task[]>;
+  findById(ownerId: string, id: string): Promise<Task | undefined>;
+  create(ownerId: string, data: { title: string }): Promise<Task>;
+}
+```
+
+```typescript
+// Postgres implementation (repositories/pg-task-repo.ts)
+export class PgTaskRepo implements TaskRepo {
+  constructor(private readonly db: PrismaClient) {}
+
+  async findById(ownerId: string, id: string): Promise<Task | undefined> {
+    const task = await this.db.task.findFirst({ where: { id, ownerId } });
+    return task ? this.toTask(task) : undefined;  // Convert null to undefined
+  }
+
+  private toTask(record: PrismaTask): Task {
+    return {
+      id: record.id,
+      title: record.title,
+      completed: record.completed,
+      createdAt: record.createdAt.toISOString(),
+    };
+  }
+}
+```
+
+```typescript
+// Memory implementation for testing (repositories/memory-task-repo.ts)
+export class MemoryTaskRepo implements TaskRepo {
+  private tasks = new Map<string, Task & { ownerId: string }>();
+  // ... implement interface methods
+}
+```
+
+## Domain Errors
+
+```typescript
+// task-errors.ts
+export class TaskNotFoundError extends Error {
+  constructor(public readonly id: string) {
+    super(`Task with id ${id} not found`);
+    this.name = 'TaskNotFoundError';
+  }
+}
+```
+
+## Configuration
+
+```typescript
+// config/env.ts
+import { z } from 'zod';
+
+export const CONFIG = z
+  .object({
+    env: z.enum(['development', 'production', 'test']),
+    port: z.string().transform(Number),
+    db: z.object({ url: z.string() }),
+    auth: z.object({ secretKey: z.string() }),
+  })
+  .parse({
+    env: process.env.NODE_ENV,
+    port: process.env.PORT,
+    db: { url: process.env.DATABASE_URL },
+    auth: { secretKey: process.env.AUTH_SECRET_KEY },
+  });
+```
+
+**When adding config:** Update `config/testing.ts` AND `docker-compose.yml`.
+
+## Response Format (ALWAYS)
+
+```typescript
+// Success
+{ data: T, meta: { requestId, timestamp } }
+
+// Error
+{ error: { code, message, details? }, meta: { requestId, timestamp } }
+```

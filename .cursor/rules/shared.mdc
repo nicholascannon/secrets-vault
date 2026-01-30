@@ -1,0 +1,125 @@
+---
+description: Shared types package for API contracts between frontend and backend
+globs: packages/shared/**
+alwaysApply: false
+---
+
+# Shared Package
+
+## Directory Structure
+
+```
+shared/src/
+├── index.ts              # Exports types/api-response
+├── types/
+│   └── api-response.ts   # ApiResponse, ApiErrorResponse, type guards
+└── api/
+    ├── errors.ts         # Generic error responses
+    └── {feature}.ts      # Feature-specific types + schemas
+```
+
+## API Response Types
+
+```typescript
+// types/api-response.ts
+export type ApiResponse<TData> = {
+  data: TData;
+  meta?: {
+    requestId: string;
+    timestamp: string;
+  };
+};
+
+export type ApiErrorResponse<TErrorCode extends string, TErrorDetails = unknown> = {
+  error: {
+    code: TErrorCode;
+    message: string;
+    details?: TErrorDetails;
+  };
+  meta: {
+    requestId: string;
+    timestamp: string;
+  };
+};
+
+// Type guard with optional error code narrowing
+export function isApiErrorResponse<TCode extends string>(
+  error: unknown,
+  code?: TCode
+): error is ApiErrorResponse<TCode> {
+  const isError = typeof error === 'object' && error !== null && 'error' in error && 'meta' in error;
+  if (!isError) return false;
+  if (code === undefined) return true;
+  return (error as ApiErrorResponse<string>).error.code === code;
+}
+```
+
+## Feature Types Pattern
+
+```typescript
+// api/tasks.ts
+import { z } from 'zod';
+import type { ApiErrorResponse, ApiResponse } from '../types/api-response.js';
+
+// Domain type
+export type Task = {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+};
+
+// Success responses
+export type GetTasksResponse = ApiResponse<{ tasks: Task[] }>;
+export type GetTaskResponse = ApiResponse<{ task: Task }>;
+export type CreateTaskResponse = ApiResponse<{ task: Task }>;
+
+// Error responses
+export type TaskNotFoundResponse = ApiErrorResponse<'TASK_NOT_FOUND'>;
+
+// Shared validation schemas (used by both FE and BE)
+export const createTaskSchema = z.object({
+  title: z.string().min(1),
+});
+export type CreateTaskSchema = z.infer<typeof createTaskSchema>;
+```
+
+## Generic Error Responses
+
+```typescript
+// api/errors.ts
+export type NotFoundResponse = ApiErrorResponse<'NOT_FOUND', { path: string; method: string }>;
+export type UnauthorizedResponse = ApiErrorResponse<'UNAUTHORIZED'>;
+export type InvalidRequestResponse = ApiErrorResponse<'INVALID_REQUEST', Record<string, string[]>>;
+export type InternalServerErrorResponse = ApiErrorResponse<'INTERNAL_SERVER_ERROR'>;
+
+export type ApiError =
+  | NotFoundResponse
+  | UnauthorizedResponse
+  | InvalidRequestResponse
+  | InternalServerErrorResponse;
+```
+
+## Import Patterns
+
+```typescript
+// Base types + type guards from package root
+import { isApiErrorResponse } from '@secrets-vault/shared';
+import type { ApiResponse, ApiErrorResponse } from '@secrets-vault/shared';
+
+// Feature types + schemas from api/{feature}
+import { createTaskSchema, type CreateTaskSchema } from '@secrets-vault/shared/api/tasks';
+import type { Task, GetTasksResponse } from '@secrets-vault/shared/api/tasks';
+import type { ApiError } from '@secrets-vault/shared/api/errors';
+```
+
+**Import schemas as values (not `type`), import types with `type` keyword.**
+
+## Schema Naming
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Schema (value) | `{action}{Feature}Schema` | `createTaskSchema` |
+| Schema type | `{Action}{Feature}Schema` | `CreateTaskSchema` |
+
+Always export both the schema and its inferred type together.

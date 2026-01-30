@@ -1,0 +1,77 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# TypeScript Code Style
+
+## Project Structure
+
+```
+packages/
+├── server/      # Express API (Clean Architecture)
+├── frontend/    # React SPA (Vite + React Query)
+└── shared/      # Shared types (API contracts)
+```
+
+- TypeScript with ESM (`type: "module"`)
+- Biome for linting/formatting
+- Vitest for testing
+
+## Formatting Rules
+
+| Rule | Value |
+|------|-------|
+| Quotes | Single |
+| Indent | 2 spaces |
+| Semicolons | Always |
+| Line width | 120 chars |
+
+Run `npm run lint:fix` from repo root to fix formatting.
+
+## Import Rules
+
+**Backend (ALWAYS `.js` extension):**
+```typescript
+import { Router } from 'express';
+import { LOGGER } from '../lib/logger.js';
+import type { ApiResponse } from '@secrets-vault/shared';
+```
+
+**Frontend (NEVER extension):**
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import type { GetTasksResponse } from '@secrets-vault/shared/api/tasks';
+```
+
+**Import order:**
+1. Node.js built-ins (with `node:` prefix)
+2. External packages
+3. Internal packages (absolute `@secrets-vault/...`)
+4. Same package (relative)
+
+**Type imports:** Always use `import type { ... }` for type-only imports.
+
+## Strict Rules
+
+- **NEVER use `null`** — always use `undefined`. Convert third-party `null` to `undefined`
+- **NEVER use `any`** — use `unknown` or proper types
+
+## Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Classes | PascalCase | `TaskController`, `TaskService` |
+| Functions/variables | camelCase | `getTasks`, `isLoading` |
+| Types/interfaces | PascalCase | `ApiResponse`, `TaskRepo` |
+| React components | PascalCase | `TaskCard`, `HomePage` |
+| Files | kebab-case | `task-controller.ts` |
+| Directories | kebab-case | `task-card/`, `api/` |
+| Constants | UPPER_SNAKE_CASE | `CONFIG`, `LOGGER` |
+| Error codes | SCREAMING_SNAKE_CASE | `'TASK_NOT_FOUND'` |
+| Hooks | `use` prefix | `useGetTasks` |
+| Response types | `{Action}{Feature}Response` | `GetTasksResponse` |
+| Zod schemas | `{action}{Feature}Schema` | `createTaskSchema` |
+| Schema types | `{Action}{Feature}Schema` | `CreateTaskSchema` |

@@ -1,0 +1,81 @@
+---
+description: Workflow for adding new API features to the monorepo
+globs: 
+alwaysApply: false
+---
+
+# Add New API Feature
+
+Use `@add-feature` when adding a new feature to the monorepo.
+
+## Steps
+
+### 1. Shared Package (`packages/shared/src/api/{feature}.ts`)
+
+Define types, response types, and Zod schemas:
+
+```typescript
+import { z } from 'zod';
+import type { ApiErrorResponse, ApiResponse } from '../types/api-response.js';
+
+// Domain type
+export type Widget = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
+// Success responses
+export type GetWidgetsResponse = ApiResponse<{ widgets: Widget[] }>;
+export type CreateWidgetResponse = ApiResponse<{ widget: Widget }>;
+
+// Error responses
+export type WidgetNotFoundResponse = ApiErrorResponse<'WIDGET_NOT_FOUND'>;
+
+// Shared validation schema
+export const createWidgetSchema = z.object({
+  name: z.string().min(1),
+});
+export type CreateWidgetSchema = z.infer<typeof createWidgetSchema>;
+```
+
+### 2. Server (`packages/server/src/api/{feature}/`)
+
+Create these files:
+- `{feature}-controller.ts` — HTTP layer, uses shared schema
+- `{feature}-service.ts` — Business logic
+- `{feature}-repo.ts` — Repository interface
+- `{feature}-errors.ts` — Domain errors
+- `repositories/pg-{feature}-repo.ts` — Postgres implementation
+- `repositories/memory-{feature}-repo.ts` — Memory implementation for tests
+- `__tests__/{feature}-controller.test.ts`
+- `__tests__/{feature}-service.test.ts`
+
+Wire up in `api-controller.ts`.
+
+### 3. Frontend Hooks (`packages/frontend/src/pages/{feature}/hooks`)
+
+Create API hooks:
+- `use-{action}-{feature}s.ts` — Query hook
+- `use-{action}-{feature}.ts` — Mutation hook
+
+Put non-feature hooks in `packages/frontend/src/hooks`.
+
+### 4. Frontend Page (`packages/frontend/src/pages/{feature}/`)
+
+Create page with components:
+- `index.ts` — Barrel export
+- `{feature}-page.tsx` — Page component
+- `components/` — Page-specific components
+
+### 5. Add Route (`packages/frontend/src/app.tsx`)
+
+Add route to router config. Nest under `RequireAuth` if protected.
+
+## Adding Config
+
+When adding new environment variables:
+
+1. `server/src/config/env.ts` — Add to Zod schema
+2. `server/src/config/testing.ts` — Add to `TEST_CONFIG`
+3. `docker-compose.yml` — Add environment variable

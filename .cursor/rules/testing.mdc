@@ -1,0 +1,125 @@
+---
+description: Vitest testing patterns for backend controllers/services and frontend components
+globs: 
+alwaysApply: false
+---
+
+# Testing
+
+## Running Tests
+
+**From repo root:**
+- Server: `npm run server test -- --run`
+- Frontend: `npm run frontend test -- --run`
+- ALL: `npm run test -- --run`
+
+**Agent requirement:** ALWAYS use `required_permissions: ["network"]` for server tests (Supertest binds ports).
+
+## Backend Test Setup
+
+```typescript
+// config/testing.ts
+import { beforeEach, vi } from 'vitest';
+import type { Config } from '../config/env.js';
+
+// Silence logger
+beforeEach(() => {
+  vi.mock('../lib/logger.js');
+});
+
+// Auth mocking
+export const TEST_USER_ID = 'user_test123';
+const mockGetAuth = vi.fn();
+
+export function mockAuthenticated(userId = TEST_USER_ID) {
+  mockGetAuth.mockReturnValue({ userId });
+}
+
+export function mockUnauthenticated() {
+  mockGetAuth.mockReturnValue({ userId: undefined });
+}
+
+vi.mock('@clerk/express', () => ({
+  getAuth: (req: unknown) => mockGetAuth(req),
+  clerkMiddleware: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+// Test config
+export const TEST_CONFIG: Config = {
+  env: 'test',
+  port: 8000,
+  db: { url: 'postgresql://test:test@localhost:5432/test' },
+  auth: { secretKey: 'test-secret' },
+};
+
+vi.mock('../config/env.js', () => ({ CONFIG: TEST_CONFIG }));
+```
+
+## Controller Tests
+
+```typescript
+// api/task/__tests__/task-controller.test.ts
+import request from 'supertest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { mockAuthenticated, mockUnauthenticated, TEST_USER_ID } from '../../../config/testing.js';
+import { createApp } from '../../../app.js';
+import { MemoryTaskRepo } from '../repositories/memory-task-repo.js';
+
+describe('TaskController', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns 200 with tasks', async () => {
+    mockAuthenticated();
+    const taskRepo = new MemoryTaskRepo();
+    await taskRepo.create(TEST_USER_ID, { title: 'Test task' });
+    const app = createApp({ taskRepo });
+
+    const response = await request(app).get('/api/v1/tasks').expect(200);
+
+    expect(response.body.data.tasks).toHaveLength(1);
+    expect(response.body.meta.requestId).toBeDefined();
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    mockUnauthenticated();
+    const app = createApp({ taskRepo: new MemoryTaskRepo() });
+
+    await request(app).get('/api/v1/tasks').expect(401);
+  });
+});
+```
+
+**Controller test patterns:**
+- Use `MemoryRepo` implementations for isolation
+- Test happy path + key error cases
+- Use `mockAuthenticated()`/`mockUnauthenticated()` helpers
+- Assert on `response.body.data` and `response.body.meta`
+
+## Service Tests
+
+Service tests should be exhaustive — test all business logic paths:
+
+```typescript
+describe('TaskService', () => {
+  it('throws TaskNotFoundError when task does not exist', async () => {
+    const taskRepo = new MemoryTaskRepo();
+    const service = new TaskService(taskRepo);
+
+    await expect(service.getTask('owner', 'nonexistent'))
+      .rejects.toThrow(TaskNotFoundError);
+  });
+});
+```
+
+## Test File Location
+
+```
+api/{feature}/
+├── {feature}-controller.ts
+├── {feature}-service.ts
+└── __tests__/
+    ├── {feature}-controller.test.ts
+    └── {feature}-service.test.ts
+```

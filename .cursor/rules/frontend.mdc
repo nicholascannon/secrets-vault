@@ -1,0 +1,205 @@
+---
+description: React frontend patterns with Vite, React Query, and react-hook-form
+globs: packages/frontend/**
+alwaysApply: false
+---
+
+# Frontend Architecture
+
+## Directory Structure
+
+```
+frontend/src/
+├── app.tsx               # Router config + App component
+├── main.tsx
+├── index.css
+├── layouts/
+│   ├── index.ts
+│   ├── root-layout.tsx   # Providers wrapper
+│   ├── page-layout.tsx   # Nav + main container
+│   └── require-auth.tsx  # Auth guard
+├── components/
+│   ├── ui/               # Reusable UI components
+│   └── {feature}/        # Feature components
+├── hooks/
+│   └── use-{action}.ts   # API hooks
+├── pages/
+│   └── {page}/
+│       ├── index.ts
+│       ├── {page}-page.tsx
+│       └── components/
+├── lib/
+│   ├── providers.tsx
+│   ├── query-client.ts
+│   └── utils.ts          # cn() helper
+└── config/
+```
+
+## Path Alias
+
+Always use `@/` for src imports:
+```typescript
+import { Button } from '@/components/ui/button';
+import { useGetUsers } from '@/hooks/use-get-users';
+```
+
+## API Hooks (React Query)
+
+```typescript
+// hooks/use-get-tasks.ts
+import type { ApiError } from '@secrets-vault/shared/api/errors';
+import type { GetTasksResponse } from '@secrets-vault/shared/api/tasks';
+import { useQuery } from '@tanstack/react-query';
+
+export function useGetTasks() {
+  return useQuery<GetTasksResponse, Error | ApiError>({
+    queryKey: ['tasks'],
+    queryFn: getTasks,
+  });
+}
+
+async function getTasks(): Promise<GetTasksResponse> {
+  const response = await fetch('/api/v1/tasks');
+  if (!response.ok) throw await response.json();
+  return response.json();
+}
+```
+
+```typescript
+// hooks/use-create-task.ts
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
+
+export function useCreateTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation<CreateTaskResponse, ApiError, CreateTaskSchema>({
+    mutationFn: createTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Task created');
+    },
+  });
+}
+```
+
+**Hook patterns:**
+- Separate fetch function from hook
+- Query keys: `['tasks']`, `['task', id]`
+- Mutations invalidate related queries
+- Toast on success
+- Throw JSON error for React Query error handling
+- Use `enabled` for conditional queries
+
+## Form Pattern (react-hook-form + Zod)
+
+```typescript
+import { zodResolver } from '@hookform/resolvers/zod';
+import { type CreateTaskSchema, createTaskSchema } from '@secrets-vault/shared/api/tasks';
+import { useForm } from 'react-hook-form';
+
+export function CreateTaskDialog() {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateTaskSchema>({
+    resolver: zodResolver(createTaskSchema),  // Use shared schema
+    defaultValues: { title: '' },
+  });
+  const { mutate: createTask, isPending } = useCreateTask();
+
+  const onSubmit = (data: CreateTaskSchema) => {
+    createTask(data, { onSuccess: () => reset() });
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Input {...register('title')} />
+      <FieldError>{errors.title?.message}</FieldError>
+      <Button disabled={isPending} type="submit">Create</Button>
+    </form>
+  );
+}
+```
+
+**Form patterns:**
+- Use `zodResolver(sharedSchema)` for client-side validation matching backend
+- Type form with `useForm<SchemaType>`
+- Use `isApiErrorResponse(error, 'ERROR_CODE')` for type-safe error narrowing
+- Reset form on success
+
+## Routing & Layouts
+
+Routes in `app.tsx` using nested layout routes:
+
+```typescript
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,        // Wraps app in providers
+    children: [
+      {
+        element: <PageLayout />,    // Adds nav + main container
+        children: [
+          { path: '/login/*', element: <LoginPage /> },
+          {
+            element: <RequireAuth />,  // Auth guard
+            children: [
+              { path: '/', element: <HomePage /> },
+              { path: '/tasks', element: <TasksPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+]);
+```
+
+**Routing rules:**
+- Use layout routes (`element` without `path`) to wrap groups
+- `RootLayout` wraps entire app in providers
+- `PageLayout` adds nav + main container
+- `RequireAuth` guards protected routes
+- Pages are pure content components
+
+## Page Pattern
+
+Pages are simple content components — auth/layout handled by parent routes:
+
+```typescript
+export function TasksPage() {
+  const { data, isLoading } = useGetTasks();
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <section className="mx-8 flex flex-col gap-4">
+      <h1 className="text-4xl">Tasks</h1>
+      {data?.data.tasks.map((task) => (
+        <TaskCard key={task.id} task={task} />
+      ))}
+    </section>
+  );
+}
+```
+
+## Component Pattern
+
+```typescript
+type TaskCardProps = {
+  task: Task;
+  onToggle?: () => void;
+  onDelete?: () => void;
+};
+
+export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
+  return (
+    <div className="rounded-lg border p-4">
+      <h3 className={task.completed ? 'line-through' : ''}>{task.title}</h3>
+      {onToggle && <button onClick={onToggle}>Toggle</button>}
+    </div>
+  );
+}
+```
