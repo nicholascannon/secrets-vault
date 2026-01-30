@@ -35,7 +35,7 @@ import type { ApiResponse } from '@my-app/shared';
 // Frontend imports (NEVER extension)
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import type { GetUsersResponse } from '@my-app/shared/api/users';
+import type { GetTasksResponse } from '@my-app/shared/api/tasks';
 ```
 
 **Additional rules:**
@@ -92,65 +92,66 @@ server/src/
 ### Controller Pattern
 
 ```typescript
-// api/user/user-controller.ts
+// api/task/task-controller.ts
 import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import {
-  createUserSchema,
-  type CreateUserResponse,
-  type GetUserResponse,
-  type GetUsersResponse,
-  type UserNotFoundResponse,
-} from '@my-app/shared/api/users';
+  createTaskSchema,
+  type CreateTaskResponse,
+  type GetTaskResponse,
+  type GetTasksResponse,
+  type TaskNotFoundResponse,
+} from '@my-app/shared/api/tasks';
 import { Controller } from '../../lib/controller.js';
 import { requiresAuth, getUserId } from '../../middleware/requires-auth.js';
-import { UserNotFoundError } from './user-errors.js';
-import type { UserService } from './user-service.js';
+import { TaskNotFoundError } from './task-errors.js';
+import type { TaskService } from './task-service.js';
 
-export class UserController extends Controller {
-  constructor(private readonly userService: UserService) {
+export class TaskController extends Controller {
+  constructor(private readonly taskService: TaskService) {
     super();
-    this.router.get('/', requiresAuth, this.getUsers);
-    this.router.post('/', requiresAuth, this.createUser);
-    this.router.get('/:id', requiresAuth, this.getUser);
+    this.router.get('/', requiresAuth, this.getTasks);
+    this.router.post('/', requiresAuth, this.createTask);
+    this.router.get('/:id', requiresAuth, this.getTask);
     this.router.use(this.errorHandler);
   }
 
-  private getUsers = async (req: Request, res: Response) => {
-    const userId = getUserId(req);
-    const users = await this.userService.getUsers(userId);
-    return res.status(200).json<GetUsersResponse>({
-      data: { users },
+  private getTasks = async (req: Request, res: Response) => {
+    const ownerId = getUserId(req);
+    const tasks = await this.taskService.getTasks(ownerId);
+    return res.status(200).json<GetTasksResponse>({
+      data: { tasks },
       meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
     });
   };
 
-  private createUser = async (req: Request, res: Response) => {
+  private createTask = async (req: Request, res: Response) => {
     // Use shared schema for validation (same schema used by frontend forms)
-    const data = createUserSchema.parse(req.body);
-    const user = await this.userService.createUser(data);
-    return res.status(201).json<CreateUserResponse>({
-      data: { user },
+    const ownerId = getUserId(req);
+    const data = createTaskSchema.parse(req.body);
+    const task = await this.taskService.createTask(ownerId, data);
+    return res.status(201).json<CreateTaskResponse>({
+      data: { task },
       meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
     });
   };
 
   // For validation only used on the backend, define schema locally (not shared with FE)
-  private getUser = async (req: Request, res: Response) => {
-    const userId = getUserId(req);
+  private getTask = async (req: Request, res: Response) => {
+    const ownerId = getUserId(req);
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
-    const user = await this.userService.getUser(userId, id);
-    return res.status(200).json<GetUserResponse>({
-      data: { user },
+    const task = await this.taskService.getTask(ownerId, id);
+    return res.status(200).json<GetTaskResponse>({
+      data: { task },
       meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
     });
   };
 
   // Controller-level error handler for domain errors
   private errorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
-    if (error instanceof UserNotFoundError) {
-      return res.status(404).json<UserNotFoundResponse>({
-        error: { code: 'USER_NOT_FOUND', message: error.message },
+    if (error instanceof TaskNotFoundError) {
+      return res.status(404).json<TaskNotFoundResponse>({
+        error: { code: 'TASK_NOT_FOUND', message: error.message },
         meta: { requestId: req.requestId, timestamp: new Date().toISOString() },
       });
     }
@@ -171,28 +172,26 @@ export class UserController extends Controller {
 ### Service Pattern
 
 ```typescript
-// api/user/user-service.ts
-import type { User } from '@my-app/shared';
-import { UserNotFoundError, UserAlreadyExistsError } from './user-errors.js';
-import type { UserRepo } from './user-repo.js';
+// api/task/task-service.ts
+import type { Task } from '@my-app/shared/api/tasks';
+import { TaskNotFoundError } from './task-errors.js';
+import type { TaskRepo } from './task-repo.js';
 
-export class UserService {
-  constructor(private readonly userRepo: UserRepo) {}
+export class TaskService {
+  constructor(private readonly taskRepo: TaskRepo) {}
 
-  async getUsers(ownerId: string): Promise<User[]> {
-    return this.userRepo.findByOwner(ownerId);
+  async getTasks(ownerId: string): Promise<Task[]> {
+    return this.taskRepo.findByOwner(ownerId);
   }
 
-  async getUser(ownerId: string, id: string): Promise<User> {
-    const user = await this.userRepo.findById(ownerId, id);
-    if (!user) throw new UserNotFoundError(id);
-    return user;
+  async getTask(ownerId: string, id: string): Promise<Task> {
+    const task = await this.taskRepo.findById(ownerId, id);
+    if (!task) throw new TaskNotFoundError(id);
+    return task;
   }
 
-  async createUser(data: { email: string; name: string }): Promise<User> {
-    const existing = await this.userRepo.findByEmail(data.email);
-    if (existing) throw new UserAlreadyExistsError(data.email);
-    return this.userRepo.create(data);
+  async createTask(ownerId: string, data: { title: string }): Promise<Task> {
+    return this.taskRepo.create(ownerId, data);
   }
 }
 ```
@@ -206,42 +205,41 @@ export class UserService {
 ### Repository Pattern
 
 ```typescript
-// api/user/user-repo.ts (interface)
-import type { User } from '@my-app/shared';
+// api/task/task-repo.ts (interface)
+import type { Task } from '@my-app/shared/api/tasks';
 
-export interface UserRepo {
-  findByOwner(ownerId: string): Promise<User[]>;
-  findById(ownerId: string, id: string): Promise<User | undefined>;
-  findByEmail(email: string): Promise<User | undefined>;
-  create(data: { email: string; name: string }): Promise<User>;
+export interface TaskRepo {
+  findByOwner(ownerId: string): Promise<Task[]>;
+  findById(ownerId: string, id: string): Promise<Task | undefined>;
+  create(ownerId: string, data: { title: string }): Promise<Task>;
 }
 ```
 
 ```typescript
-// api/user/repositories/pg-user-repo.ts
+// api/task/repositories/pg-task-repo.ts
 import type { PrismaClient } from '@prisma/client';
-import type { User } from '@my-app/shared';
-import type { UserRepo } from '../user-repo.js';
+import type { Task } from '@my-app/shared/api/tasks';
+import type { TaskRepo } from '../task-repo.js';
 
-export class PgUserRepo implements UserRepo {
+export class PgTaskRepo implements TaskRepo {
   constructor(private readonly db: PrismaClient) {}
 
-  async findById(ownerId: string, id: string): Promise<User | undefined> {
-    const user = await this.db.user.findFirst({ where: { id, ownerId } });
-    return user ? this.toUser(user) : undefined;
+  async findById(ownerId: string, id: string): Promise<Task | undefined> {
+    const task = await this.db.task.findFirst({ where: { id, ownerId } });
+    return task ? this.toTask(task) : undefined;
   }
 
-  async create(data: { email: string; name: string }): Promise<User> {
-    const user = await this.db.user.create({ data });
-    return this.toUser(user);
+  async create(ownerId: string, data: { title: string }): Promise<Task> {
+    const task = await this.db.task.create({ data: { ...data, ownerId } });
+    return this.toTask(task);
   }
 
   // Map Prisma model to domain type
-  private toUser(record: PrismaUser): User {
+  private toTask(record: PrismaTask): Task {
     return {
       id: record.id,
-      email: record.email,
-      name: record.name,
+      title: record.title,
+      completed: record.completed,
       createdAt: record.createdAt.toISOString(),
     };
   }
@@ -249,22 +247,26 @@ export class PgUserRepo implements UserRepo {
 ```
 
 ```typescript
-// api/user/repositories/memory-user-repo.ts (for testing)
-import type { User } from '@my-app/shared';
-import type { UserRepo } from '../user-repo.js';
+// api/task/repositories/memory-task-repo.ts (for testing)
+import type { Task } from '@my-app/shared/api/tasks';
+import type { TaskRepo } from '../task-repo.js';
 
-export class MemoryUserRepo implements UserRepo {
-  private users = new Map<string, User>();
+export class MemoryTaskRepo implements TaskRepo {
+  private tasks = new Map<string, Task & { ownerId: string }>();
 
-  async findById(ownerId: string, id: string): Promise<User | undefined> {
-    const user = this.users.get(id);
-    return user?.ownerId === ownerId ? user : undefined;
+  async findByOwner(ownerId: string): Promise<Task[]> {
+    return [...this.tasks.values()].filter((t) => t.ownerId === ownerId);
   }
 
-  async create(data: { email: string; name: string }): Promise<User> {
-    const user: User = { id: crypto.randomUUID(), ...data, createdAt: new Date().toISOString() };
-    this.users.set(user.id, user);
-    return user;
+  async findById(ownerId: string, id: string): Promise<Task | undefined> {
+    const task = this.tasks.get(id);
+    return task?.ownerId === ownerId ? task : undefined;
+  }
+
+  async create(ownerId: string, data: { title: string }): Promise<Task> {
+    const task = { id: crypto.randomUUID(), ...data, ownerId, completed: false, createdAt: new Date().toISOString() };
+    this.tasks.set(task.id, task);
+    return task;
   }
 }
 ```
@@ -272,18 +274,11 @@ export class MemoryUserRepo implements UserRepo {
 ### Domain Errors
 
 ```typescript
-// api/user/user-errors.ts
-export class UserNotFoundError extends Error {
+// api/task/task-errors.ts
+export class TaskNotFoundError extends Error {
   constructor(public readonly id: string) {
-    super(`User with id ${id} not found`);
-    this.name = 'UserNotFoundError';
-  }
-}
-
-export class UserAlreadyExistsError extends Error {
-  constructor(public readonly email: string) {
-    super(`User with email ${email} already exists`);
-    this.name = 'UserAlreadyExistsError';
+    super(`Task with id ${id} not found`);
+    this.name = 'TaskNotFoundError';
   }
 }
 ```
@@ -382,35 +377,35 @@ vi.mock('../config/env.js', () => ({ CONFIG: TEST_CONFIG }));
 ```
 
 ```typescript
-// api/user/__tests__/user-controller.test.ts
+// api/task/__tests__/task-controller.test.ts
 import request from 'supertest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mockAuthenticated, mockUnauthenticated, TEST_USER_ID } from '../../../config/testing.js';
 import { createApp } from '../../../app.js';
-import { MemoryUserRepo } from '../repositories/memory-user-repo.js';
+import { MemoryTaskRepo } from '../repositories/memory-task-repo.js';
 
-describe('UserController', () => {
+describe('TaskController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('returns 200 with users', async () => {
+  it('returns 200 with tasks', async () => {
     mockAuthenticated();
-    const userRepo = new MemoryUserRepo();
-    await userRepo.create({ email: 'test@example.com', name: 'Test' });
-    const app = createApp({ userRepo });
+    const taskRepo = new MemoryTaskRepo();
+    await taskRepo.create(TEST_USER_ID, { title: 'Test task' });
+    const app = createApp({ taskRepo });
 
-    const response = await request(app).get('/api/v1/users').expect(200);
+    const response = await request(app).get('/api/v1/tasks').expect(200);
 
-    expect(response.body.data.users).toHaveLength(1);
+    expect(response.body.data.tasks).toHaveLength(1);
     expect(response.body.meta.requestId).toBeDefined();
   });
 
   it('returns 401 when unauthenticated', async () => {
     mockUnauthenticated();
-    const app = createApp({ userRepo: new MemoryUserRepo() });
+    const app = createApp({ taskRepo: new MemoryTaskRepo() });
 
-    await request(app).get('/api/v1/users').expect(401);
+    await request(app).get('/api/v1/tasks').expect(401);
   });
 });
 ```
@@ -429,13 +424,12 @@ describe('UserController', () => {
 
 ```
 shared/src/
-├── index.ts              # Exports types/api-response + types/user
+├── index.ts              # Exports types/api-response
 ├── types/
-│   ├── api-response.ts   # ApiResponse, ApiErrorResponse, type guards
-│   └── user.ts           # Domain types
+│   └── api-response.ts   # ApiResponse, ApiErrorResponse, type guards
 └── api/
     ├── errors.ts         # Generic error responses
-    └── {feature}.ts      # Feature-specific types
+    └── {feature}.ts      # Feature-specific types + schemas
 ```
 
 ### API Response Types
@@ -479,32 +473,30 @@ export function isApiErrorResponse<TCode extends string>(
 ### Feature Types
 
 ```typescript
-// api/users.ts
+// api/tasks.ts
 import { z } from 'zod';
 import type { ApiErrorResponse, ApiResponse } from '../types/api-response.js';
 
-export type User = {
+export type Task = {
   id: string;
-  email: string;
-  name: string;
+  title: string;
+  completed: boolean;
   createdAt: string;
 };
 
 // Success responses
-export type GetUsersResponse = ApiResponse<{ users: User[] }>;
-export type GetUserResponse = ApiResponse<{ user: User }>;
-export type CreateUserResponse = ApiResponse<{ user: User }>;
+export type GetTasksResponse = ApiResponse<{ tasks: Task[] }>;
+export type GetTaskResponse = ApiResponse<{ task: Task }>;
+export type CreateTaskResponse = ApiResponse<{ task: Task }>;
 
 // Error responses
-export type UserNotFoundResponse = ApiErrorResponse<'USER_NOT_FOUND'>;
-export type UserAlreadyExistsResponse = ApiErrorResponse<'USER_ALREADY_EXISTS'>;
+export type TaskNotFoundResponse = ApiErrorResponse<'TASK_NOT_FOUND'>;
 
 // Shared validation schemas (used by both FE and BE)
-export const createUserSchema = z.object({
-  email: z.string().email(),
-  name: z.string().nonempty(),
+export const createTaskSchema = z.object({
+  title: z.string().min(1),
 });
-export type CreateUserSchema = z.infer<typeof createUserSchema>;
+export type CreateTaskSchema = z.infer<typeof createTaskSchema>;
 ```
 
 ### Shared Zod Schemas
@@ -516,40 +508,39 @@ Define validation schemas in `shared/src/api/{feature}.ts` that are used by **bo
 import { z } from 'zod';
 
 // Schema definition
-export const createUserSchema = z.object({
-  email: z.string().email(),
-  name: z.string().nonempty(),
+export const createTaskSchema = z.object({
+  title: z.string().min(1),
 });
 
 // Inferred type (always export alongside schema)
-export type CreateUserSchema = z.infer<typeof createUserSchema>;
+export type CreateTaskSchema = z.infer<typeof createTaskSchema>;
 ```
 
 **Backend usage (controller validation):**
 ```typescript
-// server/src/api/user/user-controller.ts
-import { createUserSchema } from '@my-app/shared/api/users';
+// server/src/api/task/task-controller.ts
+import { createTaskSchema } from '@my-app/shared/api/tasks';
 
-private createUser = async (req: Request, res: Response) => {
-  const data = createUserSchema.parse(req.body);
+private createTask = async (req: Request, res: Response) => {
+  const data = createTaskSchema.parse(req.body);
   // ...
 };
 ```
 
 **Frontend usage (react-hook-form):**
 ```typescript
-// frontend/src/pages/users/components/create-user-dialog.tsx
+// frontend/src/pages/tasks/components/create-task-dialog.tsx
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type CreateUserSchema, createUserSchema } from '@my-app/shared/api/users';
+import { type CreateTaskSchema, createTaskSchema } from '@my-app/shared/api/tasks';
 
-const { register, handleSubmit } = useForm<CreateUserSchema>({
-  resolver: zodResolver(createUserSchema),
+const { register, handleSubmit } = useForm<CreateTaskSchema>({
+  resolver: zodResolver(createTaskSchema),
 });
 ```
 
 **Schema naming:**
-- Schema: `{action}{Feature}Schema` (camelCase) — `createUserSchema`, `addFileSchema`
-- Type: `{Action}{Feature}Schema` (PascalCase) — `CreateUserSchema`, `AddFileSchema`
+- Schema: `{action}{Feature}Schema` (camelCase) — `createTaskSchema`, `addFileSchema`
+- Type: `{Action}{Feature}Schema` (PascalCase) — `CreateTaskSchema`, `AddFileSchema`
 
 ```typescript
 // api/errors.ts
@@ -575,8 +566,8 @@ import { isApiErrorResponse } from '@my-app/shared';
 import type { ApiResponse, ApiErrorResponse } from '@my-app/shared';
 
 // Feature types + schemas from api/{feature}
-import { createUserSchema, type CreateUserSchema } from '@my-app/shared/api/users';
-import type { User, GetUsersResponse, UserNotFoundResponse } from '@my-app/shared/api/users';
+import { createTaskSchema, type CreateTaskSchema } from '@my-app/shared/api/tasks';
+import type { Task, GetTasksResponse, TaskNotFoundResponse } from '@my-app/shared/api/tasks';
 import type { ApiError } from '@my-app/shared/api/errors';
 ```
 
@@ -619,46 +610,46 @@ frontend/src/
 ### API Hooks (React Query)
 
 ```typescript
-// hooks/use-get-users.ts
+// hooks/use-get-tasks.ts
 import type { ApiError } from '@my-app/shared/api/errors';
-import type { GetUsersResponse } from '@my-app/shared/api/users';
+import type { GetTasksResponse } from '@my-app/shared/api/tasks';
 import { useQuery } from '@tanstack/react-query';
 
-export function useGetUsers() {
-  return useQuery<GetUsersResponse, Error | ApiError>({
-    queryKey: ['users'],
-    queryFn: getUsers,
+export function useGetTasks() {
+  return useQuery<GetTasksResponse, Error | ApiError>({
+    queryKey: ['tasks'],
+    queryFn: getTasks,
   });
 }
 
-async function getUsers(): Promise<GetUsersResponse> {
-  const response = await fetch('/api/v1/users');
+async function getTasks(): Promise<GetTasksResponse> {
+  const response = await fetch('/api/v1/tasks');
   if (!response.ok) throw await response.json();
   return response.json();
 }
 ```
 
 ```typescript
-// hooks/use-create-user.ts
+// hooks/use-create-task.ts
 import type { ApiError } from '@my-app/shared/api/errors';
-import type { CreateUserResponse, UserAlreadyExistsResponse } from '@my-app/shared/api/users';
+import type { CreateTaskResponse, CreateTaskSchema } from '@my-app/shared/api/tasks';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
-export function useCreateUser() {
+export function useCreateTask() {
   const queryClient = useQueryClient();
 
-  return useMutation<CreateUserResponse, ApiError | UserAlreadyExistsResponse, CreateUserInput>({
-    mutationFn: createUser,
+  return useMutation<CreateTaskResponse, ApiError, CreateTaskSchema>({
+    mutationFn: createTask,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('User created');
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Task created');
     },
   });
 }
 
-async function createUser(data: CreateUserInput): Promise<CreateUserResponse> {
-  const response = await fetch('/api/v1/users', {
+async function createTask(data: CreateTaskSchema): Promise<CreateTaskResponse> {
+  const response = await fetch('/api/v1/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -669,13 +660,13 @@ async function createUser(data: CreateUserInput): Promise<CreateUserResponse> {
 ```
 
 ```typescript
-// hooks/use-get-user.ts (conditional query)
+// hooks/use-get-task.ts (conditional query)
 import { useQuery } from '@tanstack/react-query';
 
-export function useGetUser(id?: string) {
+export function useGetTask(id?: string) {
   return useQuery({
-    queryKey: ['user', id],
-    queryFn: () => getUser(id!),
+    queryKey: ['task', id],
+    queryFn: () => getTask(id!),
     enabled: !!id, // Only fetch when id exists
   });
 }
@@ -683,7 +674,7 @@ export function useGetUser(id?: string) {
 
 **Hook patterns:**
 - Separate fetch function from hook
-- Query keys: `['users']`, `['user', id]`
+- Query keys: `['tasks']`, `['task', id]`
 - Mutations invalidate related queries
 - Toast on success
 - Throw JSON error for React Query error handling
@@ -692,50 +683,38 @@ export function useGetUser(id?: string) {
 ### Form Pattern (react-hook-form + shared Zod schema)
 
 ```typescript
-// pages/users/components/create-user-dialog.tsx
+// pages/tasks/components/create-task-dialog.tsx
 import { zodResolver } from '@hookform/resolvers/zod';
-import { isApiErrorResponse } from '@my-app/shared';
-import { type CreateUserSchema, createUserSchema } from '@my-app/shared/api/users';
+import { type CreateTaskSchema, createTaskSchema } from '@my-app/shared/api/tasks';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { useCreateUser } from '@/hooks/use-create-user';
+import { useCreateTask } from '@/hooks/use-create-task';
 
-export function CreateUserDialog() {
+export function CreateTaskDialog() {
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-    setError,
-  } = useForm<CreateUserSchema>({
-    resolver: zodResolver(createUserSchema),
-    defaultValues: { email: '', name: '' },
+  } = useForm<CreateTaskSchema>({
+    resolver: zodResolver(createTaskSchema),
+    defaultValues: { title: '' },
   });
-  const { mutate: createUser, isPending } = useCreateUser();
+  const { mutate: createTask, isPending } = useCreateTask();
 
-  const onSubmit = (data: CreateUserSchema) => {
-    createUser(data, {
+  const onSubmit = (data: CreateTaskSchema) => {
+    createTask(data, {
       onSuccess: () => reset(),
-      onError: (error) => {
-        // Type-safe error handling with code narrowing
-        if (isApiErrorResponse(error, 'USER_ALREADY_EXISTS')) {
-          setError('email', { message: 'A user with this email already exists' });
-        }
-      },
     });
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <Field>
-        <Input type="email" placeholder="Email" {...register('email')} />
-        <FieldError>{errors.email?.message}</FieldError>
-      </Field>
-      <Field>
-        <Input type="text" placeholder="Name" {...register('name')} />
-        <FieldError>{errors.name?.message}</FieldError>
+        <Input type="text" placeholder="Task title" {...register('title')} />
+        <FieldError>{errors.title?.message}</FieldError>
       </Field>
       <Button disabled={isPending} type="submit">Create</Button>
     </form>
@@ -755,7 +734,7 @@ export function CreateUserDialog() {
 ```typescript
 // pages/home/home-page.tsx
 import { AuthenticatedPage, useCurrentUser } from '@/auth';
-import { UserList } from './components/user-list';
+import { TaskList } from './components/task-list';
 
 function HomeContent() {
   const { user } = useCurrentUser();
@@ -763,8 +742,8 @@ function HomeContent() {
 
   return (
     <div className="mx-8 flex flex-col gap-8">
-      <h1 className="text-4xl">Welcome, {user.name}</h1>
-      <UserList />
+      <h1 className="text-4xl">Welcome, {user.firstName}</h1>
+      <TaskList />
     </div>
   );
 }
@@ -781,23 +760,23 @@ export function HomePage() {
 ### Component Pattern
 
 ```typescript
-// components/user-card/user-card.tsx
-import type { User } from '@my-app/shared/api/users';
+// components/task-card.tsx
+import type { Task } from '@my-app/shared/api/tasks';
 
-type UserCardProps = {
-  user: User;
+type TaskCardProps = {
+  task: Task;
+  onToggle?: () => void;
   onDelete?: () => void;
-  showActions?: boolean;
 };
 
-export function UserCard({ user, onDelete, showActions = true }: UserCardProps) {
+export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
   return (
     <div className="rounded-lg border p-4">
-      <h3>{user.name}</h3>
-      <p>{user.email}</p>
-      {showActions && onDelete && (
-        <button onClick={onDelete}>Delete</button>
-      )}
+      <h3 className={task.completed ? 'line-through' : ''}>{task.title}</h3>
+      <div className="flex gap-2">
+        {onToggle && <button onClick={onToggle}>{task.completed ? 'Undo' : 'Complete'}</button>}
+        {onDelete && <button onClick={onDelete}>Delete</button>}
+      </div>
     </div>
   );
 }
@@ -818,19 +797,19 @@ import { AuthenticatedPage } from '@/auth';
 
 | Type | Convention | Example |
 |------|------------|---------|
-| Classes | PascalCase | `UserController`, `UserService` |
-| Functions/variables | camelCase | `getUsers`, `isLoading` |
-| Types/interfaces | PascalCase | `ApiResponse`, `UserRepo` |
-| React components | PascalCase | `UserCard`, `HomePage` |
-| Files | kebab-case | `user-controller.ts`, `use-get-users.ts` |
-| Directories | kebab-case | `user-card/`, `api/` |
+| Classes | PascalCase | `TaskController`, `TaskService` |
+| Functions/variables | camelCase | `getTasks`, `isLoading` |
+| Types/interfaces | PascalCase | `ApiResponse`, `TaskRepo` |
+| React components | PascalCase | `TaskCard`, `HomePage` |
+| Files | kebab-case | `task-controller.ts`, `use-get-tasks.ts` |
+| Directories | kebab-case | `task-card/`, `api/` |
 | Constants | UPPER_SNAKE_CASE | `CONFIG`, `LOGGER`, `TEST_USER_ID` |
-| Error codes | SCREAMING_SNAKE_CASE | `'USER_NOT_FOUND'`, `'UNAUTHORIZED'` |
-| Hooks | camelCase with `use` prefix | `useGetUsers`, `useCreateUser` |
-| Response types | `{Action}{Feature}Response` | `GetUsersResponse`, `CreateUserResponse` |
-| Error response types | `{Feature}{Error}Response` | `UserNotFoundResponse` |
-| Zod schemas | `{action}{Feature}Schema` (camelCase) | `createUserSchema`, `addFileSchema` |
-| Schema types | `{Action}{Feature}Schema` (PascalCase) | `CreateUserSchema`, `AddFileSchema` |
+| Error codes | SCREAMING_SNAKE_CASE | `'TASK_NOT_FOUND'`, `'UNAUTHORIZED'` |
+| Hooks | camelCase with `use` prefix | `useGetTasks`, `useCreateTask` |
+| Response types | `{Action}{Feature}Response` | `GetTasksResponse`, `CreateTaskResponse` |
+| Error response types | `{Feature}{Error}Response` | `TaskNotFoundResponse` |
+| Zod schemas | `{action}{Feature}Schema` (camelCase) | `createTaskSchema`, `addFileSchema` |
+| Schema types | `{Action}{Feature}Schema` (PascalCase) | `CreateTaskSchema`, `AddFileSchema` |
 
 ---
 
@@ -847,11 +826,11 @@ import { z } from 'zod';
 
 // 3. Internal packages (absolute)
 import type { ApiResponse } from '@my-app/shared';
-import type { User } from '@my-app/shared/api/users';
+import type { Task } from '@my-app/shared/api/tasks';
 
 // 4. Same package (relative, with .js on backend)
 import { LOGGER } from '../lib/logger.js';
-import { UserService } from './user-service.js';
+import { TaskService } from './task-service.js';
 ```
 
 ---
